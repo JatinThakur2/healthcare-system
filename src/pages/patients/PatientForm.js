@@ -179,12 +179,143 @@ const steps = [
   "SAQLI",
 ];
 
+// Create separate components to handle the different cases
+// Component for editing an existing patient
+const EditPatientForm = ({ id, setPatient, renderContent }) => {
+  // Always call useQuery (no conditions)
+  const patientData = useQuery(api.patients.getPatientById, { id });
+
+  // Update parent state when data is available
+  useEffect(() => {
+    if (patientData) {
+      setPatient(patientData);
+    }
+  }, [patientData, setPatient]);
+
+  // Show loading while waiting for data
+  if (!patientData) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Render the form content once data is loaded
+  return renderContent();
+};
+
+// Component for creating a new patient (no data fetching needed)
+const NewPatientForm = ({ renderContent }) => {
+  return renderContent();
+};
+
+// Utility function to convert string values to appropriate types
+const convertFormData = (data) => {
+  // Helper function to convert a value if it exists
+  const convert = (value, type) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+
+    if (type === "number") {
+      return parseFloat(value);
+    } else if (type === "date") {
+      return typeof value === "string" ? new Date(value).getTime() : value;
+    }
+
+    return value;
+  };
+
+  // Create a new object with converted values
+  return {
+    ...data,
+    age: convert(data.age, "number"),
+    dob: convert(data.dob, "date"),
+
+    anthropometricParameters: data.anthropometricParameters
+      ? {
+          ...data.anthropometricParameters,
+          height: convert(data.anthropometricParameters.height, "number"),
+          waistCircumference: convert(
+            data.anthropometricParameters.waistCircumference,
+            "number"
+          ),
+          bmi: convert(data.anthropometricParameters.bmi, "number"),
+          neckCircumference: convert(
+            data.anthropometricParameters.neckCircumference,
+            "number"
+          ),
+          hipCircumference: convert(
+            data.anthropometricParameters.hipCircumference,
+            "number"
+          ),
+          waistHipRatio: convert(
+            data.anthropometricParameters.waistHipRatio,
+            "number"
+          ),
+          pulse: convert(data.anthropometricParameters.pulse, "number"),
+          temperature: convert(
+            data.anthropometricParameters.temperature,
+            "number"
+          ),
+          bodyWeight: convert(
+            data.anthropometricParameters.bodyWeight,
+            "number"
+          ),
+          oxygenSaturation: convert(
+            data.anthropometricParameters.oxygenSaturation,
+            "number"
+          ),
+          apneaHypopneaIndex: convert(
+            data.anthropometricParameters.apneaHypopneaIndex,
+            "number"
+          ),
+          sleepEfficiency: convert(
+            data.anthropometricParameters.sleepEfficiency,
+            "number"
+          ),
+        }
+      : undefined,
+
+    laboratoryInvestigation: data.laboratoryInvestigation
+      ? {
+          ...data.laboratoryInvestigation,
+          hb: convert(data.laboratoryInvestigation.hb, "number"),
+          triglycerides: convert(
+            data.laboratoryInvestigation.triglycerides,
+            "number"
+          ),
+          hdl: convert(data.laboratoryInvestigation.hdl, "number"),
+          ldl: convert(data.laboratoryInvestigation.ldl, "number"),
+          fbs: convert(data.laboratoryInvestigation.fbs, "number"),
+          tsh: convert(data.laboratoryInvestigation.tsh, "number"),
+          t3: convert(data.laboratoryInvestigation.t3, "number"),
+          t4: convert(data.laboratoryInvestigation.t4, "number"),
+        }
+      : undefined,
+
+    treatmentPlan: data.treatmentPlan
+      ? {
+          ...data.treatmentPlan,
+          dateOfStart: convert(data.treatmentPlan.dateOfStart, "date"),
+          dateOfStop: convert(data.treatmentPlan.dateOfStop, "date"),
+        }
+      : undefined,
+  };
+};
+
+// Main PatientForm component
 const PatientForm = () => {
-  const { id } = useParams();
+  const params = useParams();
   const navigate = useNavigate();
   const { user, isMainHead } = useAuth();
 
-  // State for the patient data
+  // Get ID from params
+  const id = params.id || null;
+  const isEditing = Boolean(id);
+
+  // Patient form state
   const [patient, setPatient] = useState(initialPatientState);
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -192,25 +323,13 @@ const PatientForm = () => {
   const [success, setSuccess] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(false);
 
-  // Fetch doctors for main head to assign
-  const doctors = useQuery(api.auth.getAllDoctors) || [];
-
-  // Fetch patient data if editing
-  const existingPatient = useQuery(
-    id ? api.patients.getPatientById : null,
-    id ? { id } : null
-  );
+  // Fetch doctors (this is always needed)
+  const allDoctors = useQuery(api.auth.getAllDoctors);
+  const doctors = allDoctors || [];
 
   // Mutations
   const createPatient = useMutation(api.patients.createPatient);
   const updatePatient = useMutation(api.patients.updatePatient);
-
-  // Set form data if editing an existing patient
-  useEffect(() => {
-    if (id && existingPatient) {
-      setPatient(existingPatient);
-    }
-  }, [id, existingPatient]);
 
   // Calculate derived values (BMI, etc) when related fields change
   useEffect(() => {
@@ -267,49 +386,56 @@ const PatientForm = () => {
   };
 
   // Submit the form
+  // In PatientForm.js
   const handleSubmit = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const formData = {
-        ...patient,
-        // Set last modified info
-        lastModifiedBy: user._id,
-        updatedAt: Date.now(),
-      };
+      // Get auth token from localStorage
+      const token = localStorage.getItem("authToken");
 
-      // Ensure doctorId is set properly
-      if (!formData.doctorId) {
-        formData.doctorId = isMainHead ? null : user._id;
+      if (!token) {
+        setError("Authentication token not found. Please log in again.");
+        setLoading(false);
+        return;
       }
+
+      // Convert string values to appropriate types
+      const convertedData = convertFormData(patient);
 
       if (id) {
         // Update existing patient
         await updatePatient({
-          id,
-          ...formData,
+          patientId: id,
+          // Only include the fields that are expected by the backend
+          ipd_opd_no: convertedData.ipd_opd_no,
+          date: convertedData.date,
+          age: convertedData.age,
+          consentObtained: convertedData.consentObtained,
+          token,
         });
         setSuccess("Patient updated successfully");
       } else {
-        // Create new patient
-        formData.createdBy = user._id;
-        formData.createdAt = Date.now();
-        if (!isMainHead) {
-          formData.doctorId = user._id;
-        }
+        // Create new patient - only include fields in the validator
+        const result = await createPatient({
+          ipd_opd_no: convertedData.ipd_opd_no,
+          date: convertedData.date,
+          age: convertedData.age,
+          consentObtained: convertedData.consentObtained,
+          token,
+        });
 
-        const result = await createPatient(formData);
         setSuccess("Patient created successfully");
 
         // Navigate to the patient view
         setTimeout(() => {
-          navigate(`/patients/${result.id}`);
+          navigate(`/patients/${result.patientId}`);
         }, 1500);
       }
     } catch (err) {
       setError(
-        "An error occurred while saving patient data. Please try again."
+        `Error saving patient data: ${err.message || "Please try again."}`
       );
       console.error("Error saving patient:", err);
     } finally {
@@ -335,15 +461,6 @@ const PatientForm = () => {
     setSuccess("");
     setError("");
   };
-
-  // Loading state for editing
-  if (id && !existingPatient) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   // Render the appropriate form component based on the active step
   const renderStepContent = () => {
@@ -410,8 +527,16 @@ const PatientForm = () => {
       )}
 
       <Paper sx={{ p: 3, mb: 3 }}>
-        {/* Render the appropriate form component */}
-        {renderStepContent()}
+        {/* Conditionally render the right component */}
+        {isEditing ? (
+          <EditPatientForm
+            id={id}
+            setPatient={setPatient}
+            renderContent={renderStepContent}
+          />
+        ) : (
+          <NewPatientForm renderContent={renderStepContent} />
+        )}
       </Paper>
 
       {/* Navigation Buttons */}

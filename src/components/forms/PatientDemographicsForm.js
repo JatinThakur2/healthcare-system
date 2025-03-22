@@ -95,7 +95,7 @@ const PatientDemographicsForm = ({
             fullWidth
             label="Age (years)"
             name="age"
-            type="number"
+            type="number" // This tells the browser to use a number input UI
             value={patient.age || ""}
             onChange={handleChange}
           />
