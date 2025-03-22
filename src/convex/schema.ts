@@ -17,6 +17,7 @@ export default defineSchema({
   patients: defineTable({
     // Social-Demographic Parameters
     ipd_opd_no: v.string(),
+    name: v.optional(v.string()),
     date: v.number(), // Timestamp
     age: v.optional(v.number()),
     dob: v.optional(v.number()), // Timestamp

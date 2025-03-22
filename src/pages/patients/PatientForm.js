@@ -41,9 +41,10 @@ import SAQLIQuestionnaireForm from "../../components/forms/SAQLIQuestionnaireFor
 // Initial state for a new patient
 const initialPatientState = {
   ipd_opd_no: "",
+  name: "", // Add name field
   date: Date.now(),
   age: "",
-  dob: "",
+  dob: "", // Already exists for Date of Birth
   gender: "",
   contactNo: "",
   address: "",
@@ -168,27 +169,226 @@ const initialPatientState = {
   consentObtained: false,
 };
 
-// Steps for the form stepper
-const steps = [
-  "Patient Info",
-  "Medical History",
-  "Clinical Parameters",
-  "Lab Results",
-  "Lifestyle & Risk",
-  "Treatment Plan",
-  "SAQLI",
-];
+// Add this function to your PatientForm.js file
+const initializePatientStructure = (patientData) => {
+  // Create a deep copy to avoid direct mutations
+  const patient = JSON.parse(JSON.stringify(patientData || {}));
 
-// Create separate components to handle the different cases
-// Component for editing an existing patient
+  // Initialize medicalHistory if it doesn't exist
+  if (!patient.medicalHistory) {
+    patient.medicalHistory = {
+      hypertension: { status: false, duration: "", treatment: "" },
+      heartDisease: { status: false, duration: "", treatment: "" },
+      stroke: { status: false, duration: "", treatment: "" },
+      diabetes: { status: false, duration: "", treatment: "" },
+      copd: { status: false, duration: "", treatment: "" },
+      asthma: { status: false, duration: "", treatment: "" },
+      neurologicalDisorders: { status: false, duration: "", treatment: "" },
+      otherConditions: "",
+    };
+  }
+
+  // Initialize pastFamilyHistory if it doesn't exist
+  if (!patient.pastFamilyHistory) {
+    patient.pastFamilyHistory = [];
+  }
+
+  // Initialize other sections as needed...
+  if (!patient.complaints) {
+    patient.complaints = [];
+  }
+
+  if (!patient.anthropometricParameters) {
+    patient.anthropometricParameters = {
+      height: "",
+      waistCircumference: "",
+      bmi: "",
+      neckCircumference: "",
+      hipCircumference: "",
+      waistHipRatio: "",
+      pulse: "",
+      temperature: "",
+      bloodPressure: "",
+      sleepStudyType: "",
+      bodyWeight: "",
+      oxygenSaturation: "",
+      apneaHypopneaIndex: "",
+      sleepEfficiency: "",
+      sleepStages: "",
+      otherFindings: "",
+    };
+  }
+
+  // Initialize clinical parameters
+  if (!patient.clinicalParameters) {
+    patient.clinicalParameters = {
+      bloodPressure: "",
+      oxygenSaturation: "",
+      polysomnographyResults: "",
+      heartRateVariability: "",
+      electrocardiogram: "",
+    };
+  }
+
+  // Initialize laboratory investigation
+  if (!patient.laboratoryInvestigation) {
+    patient.laboratoryInvestigation = {
+      hb: "",
+      triglycerides: "",
+      hdl: "",
+      ldl: "",
+      fbs: "",
+      tsh: "",
+      t3: "",
+      t4: "",
+      additionalTests: [],
+    };
+  } else if (!patient.laboratoryInvestigation.additionalTests) {
+    patient.laboratoryInvestigation.additionalTests = [];
+  }
+
+  // Initialize lifestyle factors
+  if (!patient.lifestyleFactors) {
+    patient.lifestyleFactors = {
+      physicalActivity: "",
+      smoking: "",
+      eatingHabit: "",
+      alcoholIntake: "",
+    };
+  }
+
+  // Initialize risk factors
+  if (!patient.riskFactors) {
+    patient.riskFactors = {
+      traditionalRiskFactors: {
+        hyperlipidemia: false,
+        diabetesMellitus: false,
+        hypertension: false,
+        obesity: false,
+        smoking: false,
+        familyHistory: false,
+      },
+      nonTraditionalRiskFactors: {
+        sleepDisorder: false,
+        airPollution: false,
+        dietStyle: false,
+        psychosocialFactor: false,
+        chronicKidneyDisease: false,
+        depressionAndAnxiety: false,
+      },
+    };
+  } else {
+    // Ensure nested objects exist
+    if (!patient.riskFactors.traditionalRiskFactors) {
+      patient.riskFactors.traditionalRiskFactors = {
+        hyperlipidemia: false,
+        diabetesMellitus: false,
+        hypertension: false,
+        obesity: false,
+        smoking: false,
+        familyHistory: false,
+      };
+    }
+    if (!patient.riskFactors.nonTraditionalRiskFactors) {
+      patient.riskFactors.nonTraditionalRiskFactors = {
+        sleepDisorder: false,
+        airPollution: false,
+        dietStyle: false,
+        psychosocialFactor: false,
+        chronicKidneyDisease: false,
+        depressionAndAnxiety: false,
+      };
+    }
+  }
+
+  // Initialize treatment plan
+  if (!patient.treatmentPlan) {
+    patient.treatmentPlan = {
+      oralApplianceTherapy: false,
+      cpapTherapy: false,
+      surgery: false,
+      epworthSleepScaleScore: "",
+      sleepApneaCardiovascularRiskScore: "",
+      dateOfStart: "",
+      dateOfStop: "",
+    };
+  }
+
+  // Initialize SAQLI questionnaire
+  if (!patient.saqliQuestionnaire) {
+    patient.saqliQuestionnaire = {
+      dailyFunctioning: {
+        troubleWithDailyActivities: "",
+        concentrationAffected: "",
+        physicallyFatigued: "",
+      },
+      socialInteractions: {
+        socialGatheringsAffected: "",
+        feltIsolated: "",
+        familySupport: "",
+      },
+      emotionalFunctioning: {
+        frustration: "",
+        depression: "",
+      },
+      symptoms: {
+        unrefreshedOrHeadache: "",
+        snoringAffected: "",
+        chestDiscomfortOrPalpitations: "",
+      },
+    };
+  } else {
+    // Ensure nested objects exist
+    if (!patient.saqliQuestionnaire.dailyFunctioning) {
+      patient.saqliQuestionnaire.dailyFunctioning = {
+        troubleWithDailyActivities: "",
+        concentrationAffected: "",
+        physicallyFatigued: "",
+      };
+    }
+    if (!patient.saqliQuestionnaire.socialInteractions) {
+      patient.saqliQuestionnaire.socialInteractions = {
+        socialGatheringsAffected: "",
+        feltIsolated: "",
+        familySupport: "",
+      };
+    }
+    if (!patient.saqliQuestionnaire.emotionalFunctioning) {
+      patient.saqliQuestionnaire.emotionalFunctioning = {
+        frustration: "",
+        depression: "",
+      };
+    }
+    if (!patient.saqliQuestionnaire.symptoms) {
+      patient.saqliQuestionnaire.symptoms = {
+        unrefreshedOrHeadache: "",
+        snoringAffected: "",
+        chestDiscomfortOrPalpitations: "",
+      };
+    }
+  }
+
+  return patient;
+};
+
+// Then update your EditPatientForm component to use this function:
 const EditPatientForm = ({ id, setPatient, renderContent }) => {
-  // Always call useQuery (no conditions)
-  const patientData = useQuery(api.patients.getPatientById, { id });
+  // Get auth token from localStorage
+  const token = localStorage.getItem("authToken");
+
+  // Include token in the query
+  const patientData = useQuery(api.patients.getPatientById, {
+    patientId: id,
+    token,
+  });
 
   // Update parent state when data is available
   useEffect(() => {
     if (patientData) {
-      setPatient(patientData);
+      // Apply structure initialization before setting the data
+      const structuredData = initializePatientStructure(patientData);
+      console.log("Initialized patient data:", structuredData);
+      setPatient(structuredData);
     }
   }, [patientData, setPatient]);
 
@@ -204,6 +404,21 @@ const EditPatientForm = ({ id, setPatient, renderContent }) => {
   // Render the form content once data is loaded
   return renderContent();
 };
+// Steps for the form stepper
+const steps = [
+  "Patient Info",
+  "Medical History",
+  "Clinical Parameters",
+  "Lab Results",
+  "Lifestyle & Risk",
+  "Treatment Plan",
+  "SAQLI",
+];
+
+// Create separate components to handle the different cases
+// Component for editing an existing patient
+// Update the EditPatientForm component with better debugging
+// Removed duplicate declaration of EditPatientForm
 
 // Component for creating a new patient (no data fetching needed)
 const NewPatientForm = ({ renderContent }) => {
@@ -387,6 +602,9 @@ const PatientForm = () => {
 
   // Submit the form
   // In PatientForm.js
+  // Only modifying the handleSubmit function - the rest of the file remains the same
+  // Replace the handleSubmit function with this one in PatientForm.js
+  // Update your handleSubmit function to filter out internal Convex fields
   const handleSubmit = async () => {
     setLoading(true);
     setError("");
@@ -404,28 +622,48 @@ const PatientForm = () => {
       // Convert string values to appropriate types
       const convertedData = convertFormData(patient);
 
+      // Filter out fields that aren't in the validator
+      const filteredData = {};
+
+      // List of fields that should be excluded
+      const excludeFields = [
+        "_id",
+        "_creationTime",
+        "createdAt",
+        "updatedAt",
+        "createdBy",
+        "lastModifiedBy",
+        "doctorId", // Also exclude doctorId which isn't in the validator
+      ];
+
+      // Only include fields that aren't in the exclude list
+      Object.keys(convertedData).forEach((key) => {
+        if (!excludeFields.includes(key) && !key.startsWith("_")) {
+          filteredData[key] = convertedData[key];
+        }
+      });
+
+      // Log the data being sent for debugging
+      console.log("Submitting patient data:", filteredData);
+
       if (id) {
-        // Update existing patient
-        await updatePatient({
+        // Update existing patient - send ALL patient data except excluded fields
+        const updateResult = await updatePatient({
           patientId: id,
-          // Only include the fields that are expected by the backend
-          ipd_opd_no: convertedData.ipd_opd_no,
-          date: convertedData.date,
-          age: convertedData.age,
-          consentObtained: convertedData.consentObtained,
-          token,
-        });
-        setSuccess("Patient updated successfully");
-      } else {
-        // Create new patient - only include fields in the validator
-        const result = await createPatient({
-          ipd_opd_no: convertedData.ipd_opd_no,
-          date: convertedData.date,
-          age: convertedData.age,
-          consentObtained: convertedData.consentObtained,
+          ...filteredData,
           token,
         });
 
+        console.log("Update result:", updateResult);
+        setSuccess("Patient updated successfully");
+      } else {
+        // Create new patient - send ALL patient data except excluded fields
+        const result = await createPatient({
+          ...filteredData,
+          token,
+        });
+
+        console.log("Create result:", result);
         setSuccess("Patient created successfully");
 
         // Navigate to the patient view
@@ -472,6 +710,7 @@ const PatientForm = () => {
             setPatient={setPatient}
             doctors={doctors}
             isMainHead={isMainHead}
+            currentUser={user} // Pass the current user to the form
           />
         );
       case 1:

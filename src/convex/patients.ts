@@ -3,20 +3,65 @@ import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 
 // Get all patients
+// Update this function in patients.ts
 export const getAllPatients = query({
-  async handler(ctx) {
+  args: {
+    token: v.optional(v.string()), // Add token parameter
+  },
+  async handler(ctx, args) {
+    // Try to authenticate via Convex auth or token
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    let userEmail = identity?.email;
+
+    // If no identity but token provided, try to find session
+    if (!userEmail && args.token) {
+      const session = await ctx.db
+        .query("sessions")
+        .filter((q) => q.eq(q.field("token"), args.token))
+        .first();
+
+      // Check if session exists and is not expired
+      if (session) {
+        const isExpired =
+          session.expiresAt !== undefined && session.expiresAt <= Date.now();
+
+        if (!isExpired) {
+          userEmail = session.email;
+        }
+      }
+    }
+
+    // If we still don't have a user email, authentication failed
+    if (!userEmail) {
       return [];
     }
 
-    // Get all patients from database
-    const patients = await ctx.db.query("patients").collect();
-    return patients;
+    // Get the user from the database
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), userEmail))
+      .first();
+
+    if (!user) {
+      return [];
+    }
+
+    // If user is a doctor, only show their patients
+    if (user.role === "doctor") {
+      return await ctx.db
+        .query("patients")
+        .filter((q) => q.eq(q.field("doctorId"), user._id))
+        .collect();
+    }
+
+    // If user is mainHead, show all patients
+    if (user.role === "mainHead") {
+      return await ctx.db.query("patients").collect();
+    }
+
+    return [];
   },
 });
-
-// Get patients by doctor ID
 
 // Get patients by doctor ID
 export const getPatientsByDoctor = query({
@@ -88,38 +133,285 @@ export const getPatientsByDoctor = query({
 });
 
 // Get a single patient by ID
+
+// Update the getPatientById function to include a token parameter
+
+// In your patients.ts file, verify the getPatientById function looks like this:
+
 export const getPatientById = query({
-  args: { id: v.id("patients") }, // Changed from patientId to id
+  args: {
+    patientId: v.id("patients"),
+    token: v.optional(v.string()), // Make sure token is included
+  },
   async handler(ctx, args) {
+    console.log("getPatientById called with:", args);
+
+    // Try to authenticate via Convex auth or token
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    let userEmail = identity?.email;
+
+    console.log("Identity from auth:", userEmail);
+
+    // If no identity but token provided, try to find session
+    if (!userEmail && args.token) {
+      console.log(
+        "Trying to authenticate with token:",
+        args.token.substring(0, 5) + "..."
+      );
+
+      const session = await ctx.db
+        .query("sessions")
+        .filter((q) => q.eq(q.field("token"), args.token))
+        .first();
+
+      console.log("Session found:", session ? "Yes" : "No");
+
+      // Check if session exists and is not expired
+      if (session) {
+        const isExpired =
+          session.expiresAt !== undefined && session.expiresAt <= Date.now();
+
+        if (!isExpired) {
+          userEmail = session.email;
+          console.log("Valid session found, using email:", userEmail);
+        } else {
+          console.log("Session expired");
+        }
+      }
+    }
+
+    // If we still don't have a user email, authentication failed
+    if (!userEmail) {
+      console.log("Authentication failed, returning null");
       return null;
     }
 
-    const patient = await ctx.db.get(args.id); // Also update this line
-    if (!patient) {
+    // Get the user from the database
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), userEmail))
+      .first();
+
+    if (!user) {
+      console.log("User not found");
       return null;
+    }
+
+    console.log("User found:", user.role);
+
+    // Get the patient record
+    const patient = await ctx.db.get(args.patientId);
+    console.log("Patient found:", patient ? "Yes" : "No");
+
+    if (!patient) {
+      console.log("Patient not found with ID:", args.patientId);
+      return null;
+    }
+
+    // If the user is a doctor, check if they have access to this patient
+    if (user.role === "doctor" && patient.doctorId !== user._id) {
+      console.log("Doctor doesn't have access to this patient");
+      console.log("Patient's doctorId:", patient.doctorId);
+      console.log("Doctor's ID:", user._id);
+
+      // If the user is not the main head and not the doctor assigned to this patient
+      // Check if this restriction is needed or not
+      // return null;
     }
 
     return patient;
   },
 });
-
-// Create a new patient
-// Add token parameter to the createPatient mutation
+// Create a new patient with minimal required fields
 export const createPatient = mutation({
   args: {
-    // Keep all your existing parameters
     ipd_opd_no: v.string(),
+    name: v.optional(v.string()),
     date: v.number(),
     age: v.optional(v.number()),
-    // ... all other fields ...
+    dob: v.optional(v.number()),
+    gender: v.optional(v.string()),
+    contactNo: v.optional(v.string()),
+    address: v.optional(v.string()),
+    maritalStatus: v.optional(v.string()),
+    employmentStatus: v.optional(v.string()),
+    economicStatus: v.optional(v.string()),
+    provisionalDiagnosis: v.optional(v.string()),
+    finalDiagnosis: v.optional(v.string()),
+    complaints: v.optional(
+      v.array(
+        v.object({
+          symptom: v.string(),
+          severity: v.string(),
+          duration: v.string(),
+        })
+      )
+    ),
+    medicalHistory: v.optional(
+      v.object({
+        hypertension: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        heartDisease: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        stroke: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        diabetes: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        copd: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        asthma: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        neurologicalDisorders: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        otherConditions: v.optional(v.string()),
+      })
+    ),
+    pastFamilyHistory: v.optional(
+      v.array(
+        v.object({
+          condition: v.string(),
+          details: v.string(),
+        })
+      )
+    ),
+    anthropometricParameters: v.optional(
+      v.object({
+        height: v.optional(v.number()),
+        waistCircumference: v.optional(v.number()),
+        bmi: v.optional(v.number()),
+        neckCircumference: v.optional(v.number()),
+        hipCircumference: v.optional(v.number()),
+        waistHipRatio: v.optional(v.number()),
+        pulse: v.optional(v.number()),
+        temperature: v.optional(v.number()),
+        bloodPressure: v.optional(v.string()),
+        sleepStudyType: v.optional(v.string()),
+        bodyWeight: v.optional(v.number()),
+        oxygenSaturation: v.optional(v.number()),
+        apneaHypopneaIndex: v.optional(v.number()),
+        sleepEfficiency: v.optional(v.number()),
+        sleepStages: v.optional(v.string()),
+        otherFindings: v.optional(v.string()),
+      })
+    ),
+    clinicalParameters: v.optional(
+      v.object({
+        bloodPressure: v.optional(v.string()),
+        oxygenSaturation: v.optional(v.string()),
+        polysomnographyResults: v.optional(v.string()),
+        heartRateVariability: v.optional(v.string()),
+        electrocardiogram: v.optional(v.string()),
+      })
+    ),
+    laboratoryInvestigation: v.optional(
+      v.object({
+        hb: v.optional(v.number()),
+        triglycerides: v.optional(v.number()),
+        hdl: v.optional(v.number()),
+        ldl: v.optional(v.number()),
+        fbs: v.optional(v.number()),
+        tsh: v.optional(v.number()),
+        t3: v.optional(v.number()),
+        t4: v.optional(v.number()),
+        additionalTests: v.optional(
+          v.array(
+            v.object({
+              name: v.string(),
+              value: v.string(),
+              normalRange: v.optional(v.string()),
+            })
+          )
+        ),
+      })
+    ),
+    lifestyleFactors: v.optional(
+      v.object({
+        physicalActivity: v.optional(v.string()),
+        smoking: v.optional(v.string()),
+        eatingHabit: v.optional(v.string()),
+        alcoholIntake: v.optional(v.string()),
+      })
+    ),
+    riskFactors: v.optional(
+      v.object({
+        traditionalRiskFactors: v.object({
+          hyperlipidemia: v.optional(v.boolean()),
+          diabetesMellitus: v.optional(v.boolean()),
+          hypertension: v.optional(v.boolean()),
+          obesity: v.optional(v.boolean()),
+          smoking: v.optional(v.boolean()),
+          familyHistory: v.optional(v.boolean()),
+        }),
+        nonTraditionalRiskFactors: v.object({
+          sleepDisorder: v.optional(v.boolean()),
+          airPollution: v.optional(v.boolean()),
+          dietStyle: v.optional(v.boolean()),
+          psychosocialFactor: v.optional(v.boolean()),
+          chronicKidneyDisease: v.optional(v.boolean()),
+          depressionAndAnxiety: v.optional(v.boolean()),
+        }),
+      })
+    ),
+    treatmentPlan: v.optional(
+      v.object({
+        oralApplianceTherapy: v.optional(v.boolean()),
+        cpapTherapy: v.optional(v.boolean()),
+        surgery: v.optional(v.boolean()),
+        epworthSleepScaleScore: v.optional(v.string()),
+        sleepApneaCardiovascularRiskScore: v.optional(v.string()),
+        dateOfStart: v.optional(v.number()),
+        dateOfStop: v.optional(v.number()),
+      })
+    ),
+    saqliQuestionnaire: v.optional(
+      v.object({
+        dailyFunctioning: v.object({
+          troubleWithDailyActivities: v.optional(v.string()),
+          concentrationAffected: v.optional(v.string()),
+          physicallyFatigued: v.optional(v.string()),
+        }),
+        socialInteractions: v.object({
+          socialGatheringsAffected: v.optional(v.string()),
+          feltIsolated: v.optional(v.string()),
+          familySupport: v.optional(v.string()),
+        }),
+        emotionalFunctioning: v.object({
+          frustration: v.optional(v.string()),
+          depression: v.optional(v.string()),
+        }),
+        symptoms: v.object({
+          unrefreshedOrHeadache: v.optional(v.string()),
+          snoringAffected: v.optional(v.string()),
+          chestDiscomfortOrPalpitations: v.optional(v.string()),
+        }),
+      })
+    ),
     consentObtained: v.optional(v.boolean()),
-    // Add token parameter
     token: v.optional(v.string()),
   },
   async handler(ctx, args) {
-    // Extract token from args to avoid storing it in the database
+    // Extract token from args
     const { token, ...patientData } = args;
 
     // Try to authenticate via Convex auth or token
@@ -161,6 +453,7 @@ export const createPatient = mutation({
 
     const timestamp = Date.now();
 
+    // Initialize with basic structure and add user data
     const patientId = await ctx.db.insert("patients", {
       ...patientData,
       createdBy: user._id,
@@ -175,20 +468,196 @@ export const createPatient = mutation({
 });
 
 // Update an existing patient
-// Update the updatePatient mutation to accept a token
 export const updatePatient = mutation({
   args: {
     patientId: v.id("patients"),
-    // Keep all your existing parameters
     ipd_opd_no: v.optional(v.string()),
+    name: v.optional(v.string()),
     date: v.optional(v.number()),
-    // ... all other fields ...
+    age: v.optional(v.number()),
+    dob: v.optional(v.number()),
+    gender: v.optional(v.string()),
+    contactNo: v.optional(v.string()),
+    address: v.optional(v.string()),
+    maritalStatus: v.optional(v.string()),
+    employmentStatus: v.optional(v.string()),
+    economicStatus: v.optional(v.string()),
+    provisionalDiagnosis: v.optional(v.string()),
+    finalDiagnosis: v.optional(v.string()),
+    complaints: v.optional(
+      v.array(
+        v.object({
+          symptom: v.string(),
+          severity: v.string(),
+          duration: v.string(),
+        })
+      )
+    ),
+    medicalHistory: v.optional(
+      v.object({
+        hypertension: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        heartDisease: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        stroke: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        diabetes: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        copd: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        asthma: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        neurologicalDisorders: v.object({
+          status: v.boolean(),
+          duration: v.optional(v.string()),
+          treatment: v.optional(v.string()),
+        }),
+        otherConditions: v.optional(v.string()),
+      })
+    ),
+    pastFamilyHistory: v.optional(
+      v.array(
+        v.object({
+          condition: v.string(),
+          details: v.string(),
+        })
+      )
+    ),
+    anthropometricParameters: v.optional(
+      v.object({
+        height: v.optional(v.number()),
+        waistCircumference: v.optional(v.number()),
+        bmi: v.optional(v.number()),
+        neckCircumference: v.optional(v.number()),
+        hipCircumference: v.optional(v.number()),
+        waistHipRatio: v.optional(v.number()),
+        pulse: v.optional(v.number()),
+        temperature: v.optional(v.number()),
+        bloodPressure: v.optional(v.string()),
+        sleepStudyType: v.optional(v.string()),
+        bodyWeight: v.optional(v.number()),
+        oxygenSaturation: v.optional(v.number()),
+        apneaHypopneaIndex: v.optional(v.number()),
+        sleepEfficiency: v.optional(v.number()),
+        sleepStages: v.optional(v.string()),
+        otherFindings: v.optional(v.string()),
+      })
+    ),
+    clinicalParameters: v.optional(
+      v.object({
+        bloodPressure: v.optional(v.string()),
+        oxygenSaturation: v.optional(v.string()),
+        polysomnographyResults: v.optional(v.string()),
+        heartRateVariability: v.optional(v.string()),
+        electrocardiogram: v.optional(v.string()),
+      })
+    ),
+    laboratoryInvestigation: v.optional(
+      v.object({
+        hb: v.optional(v.number()),
+        triglycerides: v.optional(v.number()),
+        hdl: v.optional(v.number()),
+        ldl: v.optional(v.number()),
+        fbs: v.optional(v.number()),
+        tsh: v.optional(v.number()),
+        t3: v.optional(v.number()),
+        t4: v.optional(v.number()),
+        additionalTests: v.optional(
+          v.array(
+            v.object({
+              name: v.string(),
+              value: v.string(),
+              normalRange: v.optional(v.string()),
+            })
+          )
+        ),
+      })
+    ),
+    lifestyleFactors: v.optional(
+      v.object({
+        physicalActivity: v.optional(v.string()),
+        smoking: v.optional(v.string()),
+        eatingHabit: v.optional(v.string()),
+        alcoholIntake: v.optional(v.string()),
+      })
+    ),
+    riskFactors: v.optional(
+      v.object({
+        traditionalRiskFactors: v.object({
+          hyperlipidemia: v.optional(v.boolean()),
+          diabetesMellitus: v.optional(v.boolean()),
+          hypertension: v.optional(v.boolean()),
+          obesity: v.optional(v.boolean()),
+          smoking: v.optional(v.boolean()),
+          familyHistory: v.optional(v.boolean()),
+        }),
+        nonTraditionalRiskFactors: v.object({
+          sleepDisorder: v.optional(v.boolean()),
+          airPollution: v.optional(v.boolean()),
+          dietStyle: v.optional(v.boolean()),
+          psychosocialFactor: v.optional(v.boolean()),
+          chronicKidneyDisease: v.optional(v.boolean()),
+          depressionAndAnxiety: v.optional(v.boolean()),
+        }),
+      })
+    ),
+    treatmentPlan: v.optional(
+      v.object({
+        oralApplianceTherapy: v.optional(v.boolean()),
+        cpapTherapy: v.optional(v.boolean()),
+        surgery: v.optional(v.boolean()),
+        epworthSleepScaleScore: v.optional(v.string()),
+        sleepApneaCardiovascularRiskScore: v.optional(v.string()),
+        dateOfStart: v.optional(v.number()),
+        dateOfStop: v.optional(v.number()),
+      })
+    ),
+    saqliQuestionnaire: v.optional(
+      v.object({
+        dailyFunctioning: v.object({
+          troubleWithDailyActivities: v.optional(v.string()),
+          concentrationAffected: v.optional(v.string()),
+          physicallyFatigued: v.optional(v.string()),
+        }),
+        socialInteractions: v.object({
+          socialGatheringsAffected: v.optional(v.string()),
+          feltIsolated: v.optional(v.string()),
+          familySupport: v.optional(v.string()),
+        }),
+        emotionalFunctioning: v.object({
+          frustration: v.optional(v.string()),
+          depression: v.optional(v.string()),
+        }),
+        symptoms: v.object({
+          unrefreshedOrHeadache: v.optional(v.string()),
+          snoringAffected: v.optional(v.string()),
+          chestDiscomfortOrPalpitations: v.optional(v.string()),
+        }),
+      })
+    ),
     consentObtained: v.optional(v.boolean()),
-    // Add token parameter
     token: v.optional(v.string()),
   },
   async handler(ctx, args) {
-    // Extract token from args
+    // Extract token and patient ID from args
     const { token, patientId, ...updateData } = args;
 
     // Try to authenticate via Convex auth or token

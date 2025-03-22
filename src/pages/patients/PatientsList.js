@@ -25,17 +25,26 @@ import {
   MenuItem,
   Checkbox,
   FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Edit as EditIcon,
-  MoreVert as MoreVertIcon,
   FileDownload as FileDownloadIcon,
   FilterList as FilterListIcon,
+  MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
-import { exportToCSV } from "../../utils/export";
+import {
+  exportPatientToCSV,
+  exportPatientsToCSV,
+  formatDate,
+} from "../../utils/export";
 
 const PatientsList = () => {
   const navigate = useNavigate();
@@ -53,14 +62,25 @@ const PatientsList = () => {
   // Export menu state
   const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
 
-  // Fetch patients based on user role
-  const allPatients =
-    useQuery(
-      isMainHead
-        ? api.patients.getAllPatients
-        : api.patients.getPatientsByDoctor,
-      isMainHead ? {} : { doctorId: user?._id }
-    ) || [];
+  // Single patient export menu state
+  const [patientActionAnchor, setPatientActionAnchor] = useState(null);
+  const [selectedPatientForAction, setSelectedPatientForAction] =
+    useState(null);
+
+  // Export progress state
+  const [exportInProgress, setExportInProgress] = useState(false);
+  const [exportDialog, setExportDialog] = useState(false);
+
+  // Get auth token from localStorage
+  const authToken = localStorage.getItem("authToken");
+
+  // Fetch patients based on user role with token
+  const patientsData = useQuery(
+    isMainHead ? api.patients.getAllPatients : api.patients.getPatientsByDoctor,
+    isMainHead
+      ? { token: authToken }
+      : { doctorId: user?._id, token: authToken }
+  );
 
   // Fetch doctors for displaying doctor names
   const doctors = useQuery(api.auth.getAllDoctors) || [];
@@ -71,10 +91,14 @@ const PatientsList = () => {
   };
 
   // Handle search and filtering
+  const allPatients = patientsData || [];
+
   const filteredPatients = allPatients.filter((patient) => {
     // Search filter
     const searchMatches =
       patient.ipd_opd_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient.name &&
+        patient.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       patient.gender?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (patient.provisionalDiagnosis &&
         patient.provisionalDiagnosis
@@ -161,7 +185,15 @@ const PatientsList = () => {
     setFilterMenuAnchor(null);
   };
 
-  // Export handlers
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setShowIncompleteOnly(false);
+    setShowTodayOnly(false);
+    setFilterMenuAnchor(null);
+  };
+
+  // Export menu handlers
   const handleExportMenuOpen = (event) => {
     setExportMenuAnchor(event.currentTarget);
   };
@@ -170,21 +202,81 @@ const PatientsList = () => {
     setExportMenuAnchor(null);
   };
 
+  // Single patient action menu handlers
+  const handlePatientActionOpen = (event, patient) => {
+    event.stopPropagation();
+    setPatientActionAnchor(event.currentTarget);
+    setSelectedPatientForAction(patient);
+  };
+
+  const handlePatientActionClose = () => {
+    setPatientActionAnchor(null);
+    setSelectedPatientForAction(null);
+  };
+
+  // Export handlers with patient ID and name in filename
+  const handleExportSinglePatient = () => {
+    if (selectedPatientForAction) {
+      exportPatientToCSV(selectedPatientForAction);
+      handlePatientActionClose();
+    }
+  };
+
   const handleExportSelected = () => {
-    const patientsToExport = filteredPatients.filter((p) =>
-      selectedPatients.includes(p._id)
-    );
-    exportToCSV(patientsToExport, "patients_export");
-    handleExportMenuClose();
+    setExportDialog(true);
+    setExportInProgress(true);
+
+    try {
+      // Get the selected patients
+      const patientsToExport = filteredPatients.filter((p) =>
+        selectedPatients.includes(p._id)
+      );
+
+      if (patientsToExport.length === 1) {
+        // If only one patient is selected, use patient-specific filename
+        exportPatientToCSV(patientsToExport[0]);
+      } else {
+        // For multiple patients, use generic filename with count and date
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const filename = `patients_export_${today}_${patientsToExport.length}`;
+        exportPatientsToCSV(patientsToExport, filename);
+      }
+    } catch (error) {
+      console.error("Error exporting selected patients:", error);
+    } finally {
+      setExportInProgress(false);
+      handleExportMenuClose();
+    }
   };
 
   const handleExportAll = () => {
-    exportToCSV(filteredPatients, "all_patients_export");
-    handleExportMenuClose();
+    setExportDialog(true);
+    setExportInProgress(true);
+
+    try {
+      if (filteredPatients.length === 1) {
+        // If only one patient, use patient-specific filename
+        exportPatientToCSV(filteredPatients[0]);
+      } else {
+        // For all patients, use generic filename with count and date
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const filename = `all_patients_${today}_${filteredPatients.length}`;
+        exportPatientsToCSV(filteredPatients, filename);
+      }
+    } catch (error) {
+      console.error("Error exporting all patients:", error);
+    } finally {
+      setExportInProgress(false);
+      handleExportMenuClose();
+    }
+  };
+
+  const handleCloseExportDialog = () => {
+    setExportDialog(false);
   };
 
   // Loading state
-  if (!allPatients || !doctors) {
+  if (patientsData === undefined || doctors === undefined) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
         <CircularProgress />
@@ -246,9 +338,20 @@ const PatientsList = () => {
             startIcon={<FileDownloadIcon />}
             onClick={handleExportMenuOpen}
             disabled={filteredPatients.length === 0}
+            sx={{ mr: 1 }}
           >
             Export
           </Button>
+
+          {(showIncompleteOnly || showTodayOnly || searchTerm) && (
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleResetFilters}
+            >
+              Clear Filters
+            </Button>
+          )}
 
           {/* Filter Menu */}
           <Menu
@@ -336,6 +439,7 @@ const PatientsList = () => {
                     />
                   </TableCell>
                   <TableCell>IPD/OPD No.</TableCell>
+                  <TableCell>Patient Name</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell>Gender/Age</TableCell>
                   <TableCell>Diagnosis</TableCell>
@@ -369,9 +473,8 @@ const PatientsList = () => {
                             <Typography color="error">Missing</Typography>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {new Date(patient.date).toLocaleDateString()}
-                        </TableCell>
+                        <TableCell>{patient.name || "Not provided"}</TableCell>
+                        <TableCell>{formatDate(patient.date)}</TableCell>
                         <TableCell>
                           {patient.gender || "?"}, {patient.age || "?"} years
                         </TableCell>
@@ -409,10 +512,20 @@ const PatientsList = () => {
                             <IconButton
                               size="small"
                               onClick={() =>
-                                navigate(`/patients/${patient._id}/edit`)
+                                navigate(`/patients/edit/${patient._id}`)
                               }
                             >
                               <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Actions">
+                            <IconButton
+                              size="small"
+                              onClick={(e) =>
+                                handlePatientActionOpen(e, patient)
+                              }
+                            >
+                              <MoreVertIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </TableCell>
@@ -433,6 +546,46 @@ const PatientsList = () => {
           />
         </Paper>
       )}
+
+      {/* Individual Patient Action Menu */}
+      <Menu
+        anchorEl={patientActionAnchor}
+        open={Boolean(patientActionAnchor)}
+        onClose={handlePatientActionClose}
+      >
+        <MenuItem onClick={handleExportSinglePatient}>
+          <FileDownloadIcon fontSize="small" sx={{ mr: 1 }} />
+          Export to CSV
+        </MenuItem>
+      </Menu>
+
+      {/* Export Progress Dialog */}
+      <Dialog open={exportDialog} onClose={handleCloseExportDialog}>
+        <DialogTitle>Export Patient Data</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {exportInProgress ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                <CircularProgress size={40} sx={{ mb: 2 }} />
+                <Typography>Preparing your export...</Typography>
+              </Box>
+            ) : (
+              <Typography>Export completed successfully!</Typography>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseExportDialog} disabled={exportInProgress}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Box,
   Typography,
@@ -20,7 +20,19 @@ const PatientDemographicsForm = ({
   setPatient,
   doctors,
   isMainHead,
+  currentUser, // Add currentUser prop
 }) => {
+  // Effect to set the doctorId when a doctor creates a new patient
+  useEffect(() => {
+    // Only run this if the user is a doctor (not main head) and there's no doctorId set yet
+    if (!isMainHead && currentUser && currentUser._id && !patient.doctorId) {
+      setPatient((prev) => ({
+        ...prev,
+        doctorId: currentUser._id,
+      }));
+    }
+  }, [isMainHead, currentUser, patient.doctorId, setPatient]);
+
   // Handle field changes - for general fields
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -71,6 +83,13 @@ const PatientDemographicsForm = ({
     });
   };
 
+  // Format the date for input type="date"
+  const formatDateForInput = (timestamp) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    return date.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+  };
+
   return (
     <>
       <Typography variant="h6" gutterBottom>
@@ -90,14 +109,49 @@ const PatientDemographicsForm = ({
           />
         </Grid>
 
+        {/* Patient Name field */}
+        <Grid item xs={12} md={8}>
+          <TextField
+            fullWidth
+            required
+            label="Patient Name"
+            name="name"
+            value={patient.name || ""}
+            onChange={handleChange}
+          />
+        </Grid>
+
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
             label="Age (years)"
             name="age"
-            type="number" // This tells the browser to use a number input UI
+            type="number"
             value={patient.age || ""}
             onChange={handleChange}
+          />
+        </Grid>
+
+        {/* Date of Birth field */}
+        <Grid item xs={12} md={4}>
+          <TextField
+            fullWidth
+            label="Date of Birth"
+            name="dob"
+            type="date"
+            value={formatDateForInput(patient.dob)}
+            onChange={(e) => {
+              // Convert the date string to timestamp
+              const date = new Date(e.target.value);
+              const timestamp = date.getTime();
+              setPatient((prev) => ({
+                ...prev,
+                dob: timestamp,
+              }));
+            }}
+            InputLabelProps={{
+              shrink: true,
+            }}
           />
         </Grid>
 
@@ -220,27 +274,35 @@ const PatientDemographicsForm = ({
           />
         </Grid>
 
-        {isMainHead && (
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="doctor-label">Assign Doctor</InputLabel>
-              <Select
-                labelId="doctor-label"
-                name="doctorId"
-                value={patient.doctorId || ""}
-                onChange={handleChange}
-                label="Assign Doctor"
-              >
-                <MenuItem value="">Select Doctor</MenuItem>
-                {doctors.map((doctor) => (
-                  <MenuItem key={doctor._id} value={doctor._id}>
-                    {doctor.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        )}
+        {/* Doctor Assignment - Only show for Main Head, or as read-only for doctors */}
+        <Grid item xs={12} md={6}>
+          <FormControl fullWidth disabled={!isMainHead}>
+            <InputLabel id="doctor-label">Assigned Doctor</InputLabel>
+            <Select
+              labelId="doctor-label"
+              name="doctorId"
+              value={patient.doctorId || ""}
+              onChange={isMainHead ? handleChange : undefined}
+              label="Assigned Doctor"
+            >
+              {isMainHead ? (
+                <>
+                  <MenuItem value="">Select Doctor</MenuItem>
+                  {doctors.map((doctor) => (
+                    <MenuItem key={doctor._id} value={doctor._id}>
+                      {doctor.name}
+                    </MenuItem>
+                  ))}
+                </>
+              ) : (
+                // For doctors, just show their own name
+                <MenuItem value={currentUser?._id}>
+                  {currentUser?.name}
+                </MenuItem>
+              )}
+            </Select>
+          </FormControl>
+        </Grid>
 
         <Grid item xs={12}>
           <FormControlLabel

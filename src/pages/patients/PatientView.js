@@ -51,10 +51,14 @@ const PatientView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isMainHead } = useAuth();
-
+  const token = localStorage.getItem("authToken");
   const [tabValue, setTabValue] = useState(0);
 
-  const patient = useQuery(api.patients.getPatientById, { id }) || null;
+  // Use patientId parameter instead of id
+  const patient = useQuery(api.patients.getPatientById, {
+    patientId: id,
+    token,
+  });
   const doctors = useQuery(api.auth.getAllDoctors) || [];
 
   const handleTabChange = (event, newValue) => {
@@ -88,10 +92,41 @@ const PatientView = () => {
     return essentialFields.some((field) => !field);
   };
 
-  if (!patient || !doctors) {
+  // Show loading state while data is being fetched
+  if (patient === undefined || doctors === undefined) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Handle case where patient is not found
+  if (patient === null) {
+    return (
+      <Box>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+          <Tooltip title="Back to patients list">
+            <IconButton onClick={() => navigate("/patients")} sx={{ mr: 1 }}>
+              <ArrowBackIcon />
+            </IconButton>
+          </Tooltip>
+          <Typography variant="h4" component="h1">
+            Patient Not Found
+          </Typography>
+        </Box>
+        <Paper sx={{ p: 3, textAlign: "center" }}>
+          <Typography variant="body1" gutterBottom>
+            The patient you are looking for could not be found.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => navigate("/patients")}
+            sx={{ mt: 2 }}
+          >
+            Back to Patients List
+          </Button>
+        </Paper>
       </Box>
     );
   }
