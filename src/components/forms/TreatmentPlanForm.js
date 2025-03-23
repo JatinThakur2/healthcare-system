@@ -5,8 +5,9 @@ import {
   FormControlLabel,
   Checkbox,
   Divider,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 const TreatmentPlanForm = ({ patient, setPatient }) => {
   // Handle nested checkbox changes
   const handleNestedCheckboxChange = (field, checked) => {

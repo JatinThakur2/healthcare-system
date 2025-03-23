@@ -1,6 +1,6 @@
 import React from "react";
-import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+import { FormControl, InputLabel, Select, MenuItem, Grid } from "@mui/material";
+// import Grid from "@mui/material/Grid2";
 const DailyFunctioningForm = ({ patient, handleChange }) => {
   return (
     <Grid container spacing={3}>

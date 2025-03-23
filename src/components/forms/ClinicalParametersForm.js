@@ -1,6 +1,6 @@
 import React from "react";
-import { Typography, TextField, Divider } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+import { Typography, TextField, Divider, Grid } from "@mui/material";
+// import Grid from "@mui/material/Grid2";
 const ClinicalParametersForm = ({ patient, setPatient }) => {
   // Handle nested field changes
   const handleNestedChange = (section, field, value) => {

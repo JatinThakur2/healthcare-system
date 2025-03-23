@@ -6,8 +6,9 @@ import {
   Button,
   IconButton,
   Divider,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 import { Add as AddIcon, Delete as DeleteIcon } from "@mui/icons-material";
 
 const LabResultsForm = ({ patient, setPatient }) => {

@@ -11,8 +11,9 @@ import {
   Paper,
   Divider,
   CircularProgress,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 import {
   PeopleAlt as PeopleIcon,
   PersonAdd as PersonAddIcon,

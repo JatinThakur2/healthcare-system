@@ -8,8 +8,9 @@ import {
   FormControlLabel,
   Checkbox,
   Divider,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 const LifestyleRiskFactorsForm = ({ patient, setPatient }) => {
   // Handle nested field changes
   const handleNestedChange = (section, field, value) => {

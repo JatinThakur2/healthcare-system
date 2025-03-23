@@ -9,8 +9,9 @@ import {
   Chip,
   Avatar,
   useTheme,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 import {
   DirectionsRun as ActivityIcon,
   SmokingRooms as SmokingIcon,

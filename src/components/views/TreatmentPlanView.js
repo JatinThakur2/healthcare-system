@@ -12,8 +12,9 @@ import {
   Stack,
   LinearProgress,
   Tooltip,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 import {
   MedicalServices as MedicalIcon,
   MasksOutlined as MaskIcon,

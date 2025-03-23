@@ -10,8 +10,9 @@ import {
   CardHeader,
   Avatar,
   Tooltip,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
+// import Grid from "@mui/material/Grid2";
 import {
   Favorite as HeartIcon,
   Bloodtype as StrokeIcon,
@@ -140,16 +141,19 @@ const MedicalHistoryView = ({ patient }) => {
                             isPresent ? "Condition Present" : "Condition Absent"
                           }
                         >
-                          <Avatar
+                          <Box
                             sx={{
-                              bgcolor: isPresent
-                                ? "error.lightest"
-                                : "success.lightest",
-                              color: isPresent ? "error.main" : "success.main",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                             }}
                           >
-                            {isPresent ? <PresentIcon /> : <AbsentIcon />}
-                          </Avatar>
+                            {isPresent ? (
+                              <PresentIcon sx={{ color: "error.main" }} />
+                            ) : (
+                              <AbsentIcon sx={{ color: "success.main" }} />
+                            )}
+                          </Box>
                         </Tooltip>
                       </Box>
 
