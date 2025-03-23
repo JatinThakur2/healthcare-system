@@ -29,7 +29,7 @@ This Healthcare Information System provides a comprehensive platform for managin
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/healthcare-system.git
+git clone https://github.com/JatinThakur2/healthcare-system.git
 cd healthcare-system
 ```
 
@@ -44,6 +44,8 @@ npm install
 
 ```
 REACT_APP_CONVEX_URL=your_convex_url
+CONVEX_DEPLOY_KEY=your_key
+CONVEX_DEPLOYMENT=your_key
 ```
 
 4. Start the development server:
@@ -75,7 +77,6 @@ healthcare-system/
 │   │   ├── auth/           # Authentication related components
 │   │   ├── forms/          # Form components and validations
 │   │   ├── layout/         # Layout components
-│   │   ├── tables/         # Table and list view components
 │   │   └── common/         # Common UI elements
 │   ├── pages/              # Application pages
 │   │   ├── auth/           # Login and registration pages
