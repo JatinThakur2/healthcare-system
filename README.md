@@ -108,11 +108,11 @@ healthcare-system/
 
 ## Future Enhancements
 
-- Patient appointment scheduling
+- Patient Complete test report
+- Patient report details
 - Integrated billing system
 - Medical inventory management
 - Mobile application
-- Advanced analytics and reporting
 
 ## Contributing
 
@@ -132,7 +132,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Jatin Thakur - [Portfolio](https://jatin-thakur.vercel.app/) - jatinthakur3333@gmail.com
 
-Project Link: [https://github.com/yourusername/healthcare-system](https://github.com/yourusername/healthcare-system)
+Project Link: [https://github.com/JatinThakur2/healthcare-system](https://github.com/JatinThakur2/healthcare-system)
 
 ---
 
