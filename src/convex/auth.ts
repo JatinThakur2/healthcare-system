@@ -389,16 +389,45 @@ export const getCurrentUser = query({
 });
 
 // Get all doctors (for main head)
+// Update the getAllDoctors query in auth.ts to accept a token parameter:
+
+// Get all doctors (for main head)
 export const getAllDoctors = query({
-  async handler(ctx) {
+  args: {
+    token: v.optional(v.string()), // Add optional token parameter
+  },
+  async handler(ctx, args) {
+    // Try to authenticate via Convex auth or token
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    let userEmail = identity?.email;
+
+    // If no identity but token provided, try to find session
+    if (!userEmail && args.token) {
+      const session = await ctx.db
+        .query("sessions")
+        .filter((q) => q.eq(q.field("token"), args.token))
+        .first();
+
+      // Check if session exists and is not expired
+      if (session) {
+        const isExpired =
+          session.expiresAt !== undefined && session.expiresAt <= Date.now();
+
+        if (!isExpired) {
+          userEmail = session.email;
+        }
+      }
+    }
+
+    // If we still don't have a user email, authentication failed
+    if (!userEmail) {
       return [];
     }
 
+    // Get the user from the database
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .filter((q) => q.eq(q.field("email"), userEmail))
       .first();
 
     if (!user || user.role !== "mainHead") {

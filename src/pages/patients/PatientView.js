@@ -50,7 +50,7 @@ function TabPanel(props) {
 const PatientView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isMainHead } = useAuth();
+  const { user } = useAuth();
   const token = localStorage.getItem("authToken");
   const [tabValue, setTabValue] = useState(0);
 
@@ -59,7 +59,9 @@ const PatientView = () => {
     patientId: id,
     token,
   });
-  const doctors = useQuery(api.auth.getAllDoctors) || [];
+
+  // Fetch doctors with token
+  const doctors = useQuery(api.auth.getAllDoctors, { token }) || [];
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -67,8 +69,26 @@ const PatientView = () => {
 
   const getDoctorName = (doctorId) => {
     if (!doctorId) return "Not assigned";
+
+    // Debug logging to check doctorId and doctors array
+    console.log("Looking for doctor with ID:", doctorId);
+    console.log("Current user ID:", user?._id);
+    console.log("Available doctors in array:", doctors.length);
+
+    // If the current user is the doctor for this patient, use their name
+    if (user && doctorId === user._id) {
+      console.log("Current user is the doctor for this patient");
+      return user.name;
+    }
+
+    // Find the doctor in the doctors array
     const doctor = doctors.find((d) => d._id === doctorId);
-    return doctor ? doctor.name : "Unknown";
+
+    // Return the doctor's name or 'Unknown' if not found
+    const result = doctor ? doctor.name : "Unknown";
+    console.log("Doctor name lookup result:", result);
+
+    return result;
   };
 
   const handleExport = () => {
@@ -183,11 +203,12 @@ const PatientView = () => {
             <Typography variant="body2" color="text.secondary">
               Registered on: {new Date(patient.date).toLocaleDateString()}
             </Typography>
-            {isMainHead && (
-              <Typography variant="body2" color="text.secondary">
-                Doctor: {getDoctorName(patient.doctorId)}
-              </Typography>
-            )}
+            <Typography variant="body2" color="text.secondary">
+              Doctor:{" "}
+              {patient.doctorId === user?._id
+                ? `Dr. ${user.name} (You)`
+                : getDoctorName(patient.doctorId)}
+            </Typography>
           </Box>
           <PatientStatusChip isIncomplete={isIncomplete()} />
         </Box>

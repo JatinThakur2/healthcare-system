@@ -160,7 +160,7 @@ const MainHeadDashboard = () => {
                     "&:last-child": { borderBottom: "none" },
                     cursor: "pointer",
                   }}
-                  onClick={() => navigate(`/doctors/${doctor._id}`)}
+                  onClick={() => navigate(`/patients?doctorId=${doctor._id}`)}
                 >
                   <Box
                     sx={{

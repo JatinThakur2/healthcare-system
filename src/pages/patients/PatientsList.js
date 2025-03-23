@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "../../context/AuthContext";
@@ -48,7 +48,12 @@ import {
 
 const PatientsList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isMainHead } = useAuth();
+
+  // Get URL parameters for filtering by doctor
+  const queryParams = new URLSearchParams(location.search);
+  const filterByDoctorId = queryParams.get("doctorId");
 
   // Pagination and filtering states
   const [page, setPage] = useState(0);
@@ -58,6 +63,7 @@ const PatientsList = () => {
   const [filterMenuAnchor, setFilterMenuAnchor] = useState(null);
   const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
   const [showTodayOnly, setShowTodayOnly] = useState(false);
+  const [filterDoctorId, setFilterDoctorId] = useState(filterByDoctorId || "");
 
   // Export menu state
   const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
@@ -71,6 +77,13 @@ const PatientsList = () => {
   const [exportInProgress, setExportInProgress] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
 
+  // Effect to update filterDoctorId when URL parameter changes
+  useEffect(() => {
+    if (filterByDoctorId) {
+      setFilterDoctorId(filterByDoctorId);
+    }
+  }, [filterByDoctorId]);
+
   // Get auth token from localStorage
   const authToken = localStorage.getItem("authToken");
 
@@ -82,12 +95,38 @@ const PatientsList = () => {
       : { doctorId: user?._id, token: authToken }
   );
 
-  // Fetch doctors for displaying doctor names
-  const doctors = useQuery(api.auth.getAllDoctors) || [];
+  // Fetch doctors with token for all users
+  const doctors = useQuery(api.auth.getAllDoctors, { token: authToken }) || [];
 
   const getDoctorName = (doctorId) => {
+    if (!doctorId) return "Not assigned";
+
+    // Add debugging
+    console.log("Looking up doctor ID:", doctorId);
+    console.log("Current user ID:", user?._id);
+    console.log(
+      "Available doctors:",
+      doctors.map((d) => ({ id: d._id, name: d.name }))
+    );
+
+    // If the current doctor is viewing their own patients, show "You"
+    if (user && user._id === doctorId) {
+      console.log("This patient is assigned to the current user (doctor)");
+      return "You";
+    }
+
     const doctor = doctors.find((d) => d._id === doctorId);
-    return doctor ? doctor.name : "Unknown";
+    const result = doctor ? doctor.name : "Unknown";
+
+    console.log("Doctor name result:", result);
+    return result;
+  };
+
+  // Get filtered doctor name for display
+  const getFilteredDoctorName = () => {
+    if (!filterDoctorId) return null;
+    const doctor = doctors.find((d) => d._id === filterDoctorId);
+    return doctor ? doctor.name : null;
   };
 
   // Handle search and filtering
@@ -115,7 +154,11 @@ const PatientsList = () => {
     // Today's patients filter
     const todayMatches = !showTodayOnly || isFromToday(patient);
 
-    return searchMatches && incompleteMatches && todayMatches;
+    // Doctor filter - only apply if a doctor ID is specified
+    const doctorMatches =
+      !filterDoctorId || patient.doctorId === filterDoctorId;
+
+    return searchMatches && incompleteMatches && todayMatches && doctorMatches;
   });
 
   // Helper functions for filtering
@@ -190,7 +233,12 @@ const PatientsList = () => {
     setSearchTerm("");
     setShowIncompleteOnly(false);
     setShowTodayOnly(false);
+    setFilterDoctorId("");
     setFilterMenuAnchor(null);
+    // If we're filtering by doctor from URL, clear the URL parameter
+    if (filterByDoctorId) {
+      navigate("/patients");
+    }
   };
 
   // Export menu handlers
@@ -294,9 +342,16 @@ const PatientsList = () => {
           mb: 3,
         }}
       >
-        <Typography variant="h4" component="h1">
-          Patients
-        </Typography>
+        <div>
+          <Typography variant="h4" component="h1">
+            Patients
+          </Typography>
+          {getFilteredDoctorName() && (
+            <Typography variant="subtitle1" color="primary">
+              Filtered by doctor: Dr. {getFilteredDoctorName()}
+            </Typography>
+          )}
+        </div>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -343,7 +398,10 @@ const PatientsList = () => {
             Export
           </Button>
 
-          {(showIncompleteOnly || showTodayOnly || searchTerm) && (
+          {(showIncompleteOnly ||
+            showTodayOnly ||
+            searchTerm ||
+            filterDoctorId) && (
             <Button
               variant="outlined"
               color="error"
@@ -405,19 +463,22 @@ const PatientsList = () => {
       {filteredPatients.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: "center" }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            {searchTerm || showIncompleteOnly || showTodayOnly
+            {searchTerm || showIncompleteOnly || showTodayOnly || filterDoctorId
               ? "No patients found matching your filters."
               : "No patients found. Add your first patient to get started."}
           </Typography>
-          {!searchTerm && !showIncompleteOnly && !showTodayOnly && (
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => navigate("/patients/new")}
-            >
-              Add New Patient
-            </Button>
-          )}
+          {!searchTerm &&
+            !showIncompleteOnly &&
+            !showTodayOnly &&
+            !filterDoctorId && (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => navigate("/patients/new")}
+              >
+                Add New Patient
+              </Button>
+            )}
         </Paper>
       ) : (
         <Paper>
@@ -443,7 +504,8 @@ const PatientsList = () => {
                   <TableCell>Date</TableCell>
                   <TableCell>Gender/Age</TableCell>
                   <TableCell>Diagnosis</TableCell>
-                  {isMainHead && <TableCell>Doctor</TableCell>}
+                  {/* Always show Doctor column, not just for main head */}
+                  <TableCell>Doctor</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
@@ -483,13 +545,14 @@ const PatientsList = () => {
                             <Typography color="error">Missing</Typography>
                           )}
                         </TableCell>
-                        {isMainHead && (
-                          <TableCell>
-                            {patient.doctorId
-                              ? getDoctorName(patient.doctorId)
-                              : "Not assigned"}
-                          </TableCell>
-                        )}
+                        {/* Doctor cell - always visible for all users */}
+                        <TableCell>
+                          {patient.doctorId
+                            ? patient.doctorId === user?._id
+                              ? "You"
+                              : getDoctorName(patient.doctorId)
+                            : "Not assigned"}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             label={incomplete ? "Incomplete" : "Complete"}
@@ -512,7 +575,7 @@ const PatientsList = () => {
                             <IconButton
                               size="small"
                               onClick={() =>
-                                navigate(`/patients/edit/${patient._id}`)
+                                navigate(`/patients/${patient._id}/edit`)
                               }
                             >
                               <EditIcon fontSize="small" />

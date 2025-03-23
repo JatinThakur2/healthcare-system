@@ -24,10 +24,28 @@ import {
 const DoctorDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const myPatients =
-    useQuery(api.patients.getPatientsByDoctor, { doctorId: user?._id }) || [];
 
-  if (!myPatients) {
+  // Get auth token from localStorage
+  const authToken = localStorage.getItem("authToken");
+
+  // Add debugging to check values
+  console.log("Current user:", user);
+  console.log("User ID:", user?._id);
+  console.log("Auth token:", authToken ? "Token exists" : "No token");
+
+  // Pass both doctorId and token to the query
+  const myPatients =
+    useQuery(
+      api.patients.getPatientsByDoctor,
+      user?._id && authToken
+        ? { doctorId: user._id, token: authToken }
+        : undefined
+    ) || [];
+
+  // More debugging
+  console.log("Retrieved patients:", myPatients ? myPatients.length : 0);
+
+  if (myPatients === undefined) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
         <CircularProgress />
@@ -161,7 +179,7 @@ const DoctorDashboard = () => {
               </Box>
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="body2">
-                  {patient.gender}, {patient.age || "? "} years
+                  {patient.gender || "?"}, {patient.age || "?"} years
                 </Typography>
                 <Typography
                   variant="body2"

@@ -41,10 +41,10 @@ import SAQLIQuestionnaireForm from "../../components/forms/SAQLIQuestionnaireFor
 // Initial state for a new patient
 const initialPatientState = {
   ipd_opd_no: "",
-  name: "", // Add name field
+  name: "",
   date: Date.now(),
   age: "",
-  dob: "", // Already exists for Date of Birth
+  dob: "",
   gender: "",
   contactNo: "",
   address: "",
@@ -53,9 +53,7 @@ const initialPatientState = {
   economicStatus: "",
   provisionalDiagnosis: "",
   finalDiagnosis: "",
-
   complaints: [],
-
   medicalHistory: {
     hypertension: { status: false, duration: "", treatment: "" },
     heartDisease: { status: false, duration: "", treatment: "" },
@@ -66,9 +64,7 @@ const initialPatientState = {
     neurologicalDisorders: { status: false, duration: "", treatment: "" },
     otherConditions: "",
   },
-
   pastFamilyHistory: [],
-
   anthropometricParameters: {
     height: "",
     waistCircumference: "",
@@ -87,7 +83,6 @@ const initialPatientState = {
     sleepStages: "",
     otherFindings: "",
   },
-
   clinicalParameters: {
     bloodPressure: "",
     oxygenSaturation: "",
@@ -95,7 +90,6 @@ const initialPatientState = {
     heartRateVariability: "",
     electrocardiogram: "",
   },
-
   laboratoryInvestigation: {
     hb: "",
     triglycerides: "",
@@ -107,14 +101,12 @@ const initialPatientState = {
     t4: "",
     additionalTests: [],
   },
-
   lifestyleFactors: {
     physicalActivity: "",
     smoking: "",
     eatingHabit: "",
     alcoholIntake: "",
   },
-
   riskFactors: {
     traditionalRiskFactors: {
       hyperlipidemia: false,
@@ -133,7 +125,6 @@ const initialPatientState = {
       depressionAndAnxiety: false,
     },
   },
-
   treatmentPlan: {
     oralApplianceTherapy: false,
     cpapTherapy: false,
@@ -143,7 +134,6 @@ const initialPatientState = {
     dateOfStart: "",
     dateOfStop: "",
   },
-
   saqliQuestionnaire: {
     dailyFunctioning: {
       troubleWithDailyActivities: "",
@@ -165,11 +155,10 @@ const initialPatientState = {
       chestDiscomfortOrPalpitations: "",
     },
   },
-
   consentObtained: false,
 };
 
-// Add this function to your PatientForm.js file
+// Function to initialize patient structure
 const initializePatientStructure = (patientData) => {
   // Create a deep copy to avoid direct mutations
   const patient = JSON.parse(JSON.stringify(patientData || {}));
@@ -371,7 +360,7 @@ const initializePatientStructure = (patientData) => {
   return patient;
 };
 
-// Then update your EditPatientForm component to use this function:
+// Component for editing an existing patient
 const EditPatientForm = ({ id, setPatient, renderContent }) => {
   // Get auth token from localStorage
   const token = localStorage.getItem("authToken");
@@ -404,6 +393,7 @@ const EditPatientForm = ({ id, setPatient, renderContent }) => {
   // Render the form content once data is loaded
   return renderContent();
 };
+
 // Steps for the form stepper
 const steps = [
   "Patient Info",
@@ -414,11 +404,6 @@ const steps = [
   "Treatment Plan",
   "SAQLI",
 ];
-
-// Create separate components to handle the different cases
-// Component for editing an existing patient
-// Update the EditPatientForm component with better debugging
-// Removed duplicate declaration of EditPatientForm
 
 // Component for creating a new patient (no data fetching needed)
 const NewPatientForm = ({ renderContent }) => {
@@ -538,9 +523,15 @@ const PatientForm = () => {
   const [success, setSuccess] = useState("");
   const [confirmDialog, setConfirmDialog] = useState(false);
 
-  // Fetch doctors (this is always needed)
-  const allDoctors = useQuery(api.auth.getAllDoctors);
+  // Get token from localStorage
+  const token = localStorage.getItem("authToken");
+
+  // Fetch doctors with the token
+  const allDoctors = useQuery(api.auth.getAllDoctors, { token });
   const doctors = allDoctors || [];
+
+  // Add debugging to see the doctors data
+  console.log("Fetched doctors in PatientForm:", doctors);
 
   // Mutations
   const createPatient = useMutation(api.patients.createPatient);
@@ -601,10 +592,6 @@ const PatientForm = () => {
   };
 
   // Submit the form
-  // In PatientForm.js
-  // Only modifying the handleSubmit function - the rest of the file remains the same
-  // Replace the handleSubmit function with this one in PatientForm.js
-  // Update your handleSubmit function to filter out internal Convex fields
   const handleSubmit = async () => {
     setLoading(true);
     setError("");
@@ -633,7 +620,6 @@ const PatientForm = () => {
         "updatedAt",
         "createdBy",
         "lastModifiedBy",
-        "doctorId", // Also exclude doctorId which isn't in the validator
       ];
 
       // Only include fields that aren't in the exclude list
@@ -643,11 +629,16 @@ const PatientForm = () => {
         }
       });
 
+      // Make sure doctorId is included
+      if (patient.doctorId) {
+        filteredData.doctorId = patient.doctorId;
+      }
+
       // Log the data being sent for debugging
       console.log("Submitting patient data:", filteredData);
 
       if (id) {
-        // Update existing patient - send ALL patient data except excluded fields
+        // Update existing patient
         const updateResult = await updatePatient({
           patientId: id,
           ...filteredData,
@@ -656,8 +647,13 @@ const PatientForm = () => {
 
         console.log("Update result:", updateResult);
         setSuccess("Patient updated successfully");
+
+        // Navigate to the patient view after a brief delay (for both main head and doctor)
+        setTimeout(() => {
+          navigate(`/patients/${id}`);
+        }, 1500);
       } else {
-        // Create new patient - send ALL patient data except excluded fields
+        // Create new patient
         const result = await createPatient({
           ...filteredData,
           token,
@@ -666,10 +662,12 @@ const PatientForm = () => {
         console.log("Create result:", result);
         setSuccess("Patient created successfully");
 
-        // Navigate to the patient view
-        setTimeout(() => {
-          navigate(`/patients/${result.patientId}`);
-        }, 1500);
+        // Navigate to the patient view after a brief delay
+        if (result && result.patientId) {
+          setTimeout(() => {
+            navigate(`/patients/${result.patientId}`);
+          }, 1500);
+        }
       }
     } catch (err) {
       setError(

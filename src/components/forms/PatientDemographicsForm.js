@@ -1,3 +1,5 @@
+// PatientDemographicsForm.js - FIXED VERSION
+
 import React, { useEffect } from "react";
 import {
   Box,
@@ -11,6 +13,7 @@ import {
   Checkbox,
   IconButton,
   Divider,
+  FormHelperText,
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import { Add as AddIcon, Delete as DeleteIcon } from "@mui/icons-material";
@@ -20,12 +23,21 @@ const PatientDemographicsForm = ({
   setPatient,
   doctors,
   isMainHead,
-  currentUser, // Add currentUser prop
+  currentUser,
 }) => {
+  // Debug logs to check values
+  console.log("======== PATIENT DEMOGRAPHICS FORM ========");
+  console.log("Doctors:", doctors);
+  console.log("isMainHead:", isMainHead);
+  console.log("currentUser:", currentUser);
+  console.log("Current doctorId:", patient.doctorId);
+  console.log("==========================================");
+
   // Effect to set the doctorId when a doctor creates a new patient
   useEffect(() => {
     // Only run this if the user is a doctor (not main head) and there's no doctorId set yet
     if (!isMainHead && currentUser && currentUser._id && !patient.doctorId) {
+      console.log("Auto-assigning doctor:", currentUser._id);
       setPatient((prev) => ({
         ...prev,
         doctorId: currentUser._id,
@@ -36,10 +48,38 @@ const PatientDemographicsForm = ({
   // Handle field changes - for general fields
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Field ${name} changed to:`, value);
     setPatient((prev) => ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  // Special handler just for doctor selection
+  const handleDoctorChange = (e) => {
+    try {
+      const value = e.target.value;
+      console.log("Doctor selection changed to:", value);
+
+      // Find the doctor object for logging
+      const selectedDoctor = doctors.find((doc) => doc._id === value);
+      console.log(
+        "Selected doctor:",
+        selectedDoctor ? selectedDoctor.name : "None"
+      );
+
+      // Ensure we're updating the state properly
+      setPatient((prevPatient) => {
+        const updatedPatient = {
+          ...prevPatient,
+          doctorId: value,
+        };
+        console.log("Updated patient with doctorId:", updatedPatient.doctorId);
+        return updatedPatient;
+      });
+    } catch (error) {
+      console.error("Error in handleDoctorChange:", error);
+    }
   };
 
   // Handle checkbox changes
@@ -83,11 +123,48 @@ const PatientDemographicsForm = ({
     });
   };
 
+  // Function to calculate age from DOB
+  const calculateAge = (dob) => {
+    if (!dob) return "";
+    const birthDate = new Date(dob);
+    const today = new Date();
+
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDifference = today.getMonth() - birthDate.getMonth();
+
+    // If birthday hasn't occurred yet this year, subtract one year
+    if (
+      monthDifference < 0 ||
+      (monthDifference === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    return age;
+  };
+
   // Format the date for input type="date"
   const formatDateForInput = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
     return date.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+  };
+
+  // Handle DOB change - now also updates age automatically
+  const handleDOBChange = (e) => {
+    const dateString = e.target.value;
+    const date = new Date(dateString);
+    const timestamp = date.getTime();
+
+    // Calculate age based on the selected DOB
+    const calculatedAge = calculateAge(date);
+
+    // Update both DOB and age fields
+    setPatient((prev) => ({
+      ...prev,
+      dob: timestamp,
+      age: calculatedAge,
+    }));
   };
 
   return (
@@ -121,17 +198,6 @@ const PatientDemographicsForm = ({
           />
         </Grid>
 
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="Age (years)"
-            name="age"
-            type="number"
-            value={patient.age || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
         {/* Date of Birth field */}
         <Grid item xs={12} md={4}>
           <TextField
@@ -140,21 +206,34 @@ const PatientDemographicsForm = ({
             name="dob"
             type="date"
             value={formatDateForInput(patient.dob)}
-            onChange={(e) => {
-              // Convert the date string to timestamp
-              const date = new Date(e.target.value);
-              const timestamp = date.getTime();
-              setPatient((prev) => ({
-                ...prev,
-                dob: timestamp,
-              }));
-            }}
+            onChange={handleDOBChange}
             InputLabelProps={{
               shrink: true,
             }}
           />
         </Grid>
 
+        {/* Age field */}
+        <Grid item xs={12} md={4}>
+          <TextField
+            fullWidth
+            label="Age (years)"
+            name="age"
+            type="number"
+            value={patient.age || ""}
+            onChange={handleChange}
+            InputProps={{
+              readOnly: Boolean(patient.dob),
+            }}
+            helperText={
+              patient.dob
+                ? "Auto-calculated from DOB"
+                : "Enter age or select DOB"
+            }
+          />
+        </Grid>
+
+        {/* Gender Select */}
         <Grid item xs={12} md={4}>
           <FormControl fullWidth>
             <InputLabel id="gender-label">Gender</InputLabel>
@@ -274,33 +353,63 @@ const PatientDemographicsForm = ({
           />
         </Grid>
 
-        {/* Doctor Assignment - Only show for Main Head, or as read-only for doctors */}
+        {/* DOCTOR ASSIGNMENT - COMPLETELY REWRITTEN */}
         <Grid item xs={12} md={6}>
-          <FormControl fullWidth disabled={!isMainHead}>
-            <InputLabel id="doctor-label">Assigned Doctor</InputLabel>
+          <FormControl
+            fullWidth
+            error={isMainHead && !patient.doctorId}
+            disabled={!isMainHead}
+          >
+            <InputLabel id="doctor-assignment-label">
+              Assigned Doctor
+            </InputLabel>
             <Select
-              labelId="doctor-label"
-              name="doctorId"
+              labelId="doctor-assignment-label"
+              id="doctor-assignment"
               value={patient.doctorId || ""}
-              onChange={isMainHead ? handleChange : undefined}
               label="Assigned Doctor"
+              onChange={handleDoctorChange}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
             >
+              <MenuItem value="">
+                <em>Select a doctor</em>
+              </MenuItem>
+
               {isMainHead ? (
-                <>
-                  <MenuItem value="">Select Doctor</MenuItem>
-                  {doctors.map((doctor) => (
+                // For main head, show all doctors
+                Array.isArray(doctors) && doctors.length > 0 ? (
+                  doctors.map((doctor) => (
                     <MenuItem key={doctor._id} value={doctor._id}>
                       {doctor.name}
                     </MenuItem>
-                  ))}
-                </>
+                  ))
+                ) : (
+                  <MenuItem value="" disabled>
+                    No doctors available
+                  </MenuItem>
+                )
               ) : (
-                // For doctors, just show their own name
-                <MenuItem value={currentUser?._id}>
-                  {currentUser?.name}
-                </MenuItem>
+                // For doctors, show only themselves
+                currentUser && (
+                  <MenuItem value={currentUser._id}>
+                    {currentUser.name || "Current Doctor"}
+                  </MenuItem>
+                )
               )}
             </Select>
+            {isMainHead && (
+              <FormHelperText>
+                {!patient.doctorId
+                  ? "Please assign a doctor to this patient"
+                  : "Doctor assigned successfully"}
+              </FormHelperText>
+            )}
           </FormControl>
         </Grid>
 

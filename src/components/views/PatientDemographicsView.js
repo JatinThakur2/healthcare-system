@@ -2,383 +2,312 @@ import React from "react";
 import {
   Box,
   Typography,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormControlLabel,
-  Checkbox,
-  IconButton,
   Divider,
+  Paper,
+  Chip,
+  Card,
+  CardContent,
+  Avatar,
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
-import { Add as AddIcon, Delete as DeleteIcon } from "@mui/icons-material";
+import {
+  Person as PersonIcon,
+  Phone as PhoneIcon,
+  Home as HomeIcon,
+  Work as WorkIcon,
+  AttachMoney as MoneyIcon,
+  MedicalServices as MedicalIcon,
+  EventNote as EventIcon,
+  Wc as GenderIcon,
+  Cake as BirthdayIcon,
+} from "@mui/icons-material";
 
-const PatientDemographicsForm = ({
-  patient,
-  setPatient,
-  doctors,
-  isMainHead,
-}) => {
-  // Handle field changes - for general fields
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setPatient((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+const PatientDemographicsView = ({ patient }) => {
+  // Helper function to format date for display
+  const formatDate = (timestamp) => {
+    if (!timestamp) return "Not provided";
+    return new Date(timestamp).toLocaleDateString();
   };
 
-  // Handle checkbox changes
-  const handleCheckboxChange = (e) => {
-    const { name, checked } = e.target;
-    setPatient((prev) => ({
-      ...prev,
-      [name]: checked,
-    }));
+  // Format field names for better display
+  const formatFieldName = (name) => {
+    return name
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (str) => str.toUpperCase());
   };
 
-  // Array field handlers for complaints
-  const handleAddComplaint = () => {
-    setPatient((prev) => ({
-      ...prev,
-      complaints: [
-        ...(prev.complaints || []),
-        { symptom: "", severity: "", duration: "" },
-      ],
-    }));
+  // Render a field with label, value and icon
+  const renderField = (label, value, icon, defaultValue = "Not provided") => (
+    <Box sx={{ display: "flex", alignItems: "flex-start", mb: 2 }}>
+      <Avatar
+        sx={{
+          bgcolor: "primary.light",
+          mr: 2,
+          width: 36,
+          height: 36,
+        }}
+      >
+        {icon}
+      </Avatar>
+      <Box>
+        <Typography variant="subtitle2" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="body1" fontWeight="medium">
+          {value || defaultValue}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  // Get initials for the avatar
+  const getInitials = (name) => {
+    if (!name) return "P";
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
   };
 
-  const handleRemoveComplaint = (index) => {
-    setPatient((prev) => ({
-      ...prev,
-      complaints: prev.complaints.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleComplaintChange = (index, field, value) => {
-    setPatient((prev) => {
-      const newComplaints = [...prev.complaints];
-      newComplaints[index] = {
-        ...newComplaints[index],
-        [field]: value,
-      };
-      return {
-        ...prev,
-        complaints: newComplaints,
-      };
-    });
-  };
-
-  // Format the date for input type="date"
-  const formatDateForInput = (timestamp) => {
-    if (!timestamp) return "";
-    const date = new Date(timestamp);
-    return date.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+  // Determine gender icon color
+  const getGenderColor = (gender) => {
+    if (gender === "male") return "#2196f3";
+    if (gender === "female") return "#e91e63";
+    return "#9c27b0"; // other
   };
 
   return (
     <>
-      <Typography variant="h6" gutterBottom>
-        Patient Information
-      </Typography>
-      <Divider sx={{ mb: 3 }} />
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            required
-            label="IPD/OPD Number"
-            name="ipd_opd_no"
-            value={patient.ipd_opd_no || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        {/* New Patient Name field */}
-        <Grid item xs={12} md={8}>
-          <TextField
-            fullWidth
-            required
-            label="Patient Name"
-            name="name"
-            value={patient.name || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="Age (years)"
-            name="age"
-            type="number"
-            value={patient.age || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        {/* New Date of Birth field */}
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="Date of Birth"
-            name="dob"
-            type="date"
-            value={formatDateForInput(patient.dob)}
-            onChange={(e) => {
-              // Convert the date string to timestamp
-              const date = new Date(e.target.value);
-              const timestamp = date.getTime();
-              setPatient((prev) => ({
-                ...prev,
-                dob: timestamp,
-              }));
-            }}
-            InputLabelProps={{
-              shrink: true,
-            }}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel id="gender-label">Gender</InputLabel>
-            <Select
-              labelId="gender-label"
-              name="gender"
-              value={patient.gender || ""}
-              onChange={handleChange}
-              label="Gender"
+      <Card elevation={2} sx={{ mb: 4, overflow: "visible" }}>
+        <CardContent sx={{ pt: 4, pb: 4 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+            <Avatar
+              sx={{
+                width: 64,
+                height: 64,
+                bgcolor: "primary.main",
+                fontSize: "1.5rem",
+                mr: 2,
+              }}
             >
-              <MenuItem value="">Select Gender</MenuItem>
-              <MenuItem value="male">Male</MenuItem>
-              <MenuItem value="female">Female</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Contact Number"
-            name="contactNo"
-            value={patient.contactNo || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Address"
-            name="address"
-            multiline
-            rows={2}
-            value={patient.address || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel id="marital-status-label">Marital Status</InputLabel>
-            <Select
-              labelId="marital-status-label"
-              name="maritalStatus"
-              value={patient.maritalStatus || ""}
-              onChange={handleChange}
-              label="Marital Status"
-            >
-              <MenuItem value="">Select Status</MenuItem>
-              <MenuItem value="married">Married</MenuItem>
-              <MenuItem value="unmarried">Unmarried</MenuItem>
-              <MenuItem value="divorced">Divorced</MenuItem>
-              <MenuItem value="widowed">Widowed</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel id="employment-status-label">
-              Employment Status
-            </InputLabel>
-            <Select
-              labelId="employment-status-label"
-              name="employmentStatus"
-              value={patient.employmentStatus || ""}
-              onChange={handleChange}
-              label="Employment Status"
-            >
-              <MenuItem value="">Select Status</MenuItem>
-              <MenuItem value="employed">Employed</MenuItem>
-              <MenuItem value="unemployed">Unemployed</MenuItem>
-              <MenuItem value="student">Student</MenuItem>
-              <MenuItem value="retired">Retired</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
-            <InputLabel id="economic-status-label">Economic Status</InputLabel>
-            <Select
-              labelId="economic-status-label"
-              name="economicStatus"
-              value={patient.economicStatus || ""}
-              onChange={handleChange}
-              label="Economic Status"
-            >
-              <MenuItem value="">Select Status</MenuItem>
-              <MenuItem value="upperClass">Upper Class</MenuItem>
-              <MenuItem value="upperMiddleClass">Upper Middle Class</MenuItem>
-              <MenuItem value="lowerMiddleClass">Lower Middle Class</MenuItem>
-              <MenuItem value="lowerClass">Lower Class</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Provisional Diagnosis"
-            name="provisionalDiagnosis"
-            value={patient.provisionalDiagnosis || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Final Diagnosis"
-            name="finalDiagnosis"
-            value={patient.finalDiagnosis || ""}
-            onChange={handleChange}
-          />
-        </Grid>
-
-        {isMainHead && (
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="doctor-label">Assign Doctor</InputLabel>
-              <Select
-                labelId="doctor-label"
-                name="doctorId"
-                value={patient.doctorId || ""}
-                onChange={handleChange}
-                label="Assign Doctor"
-              >
-                <MenuItem value="">Select Doctor</MenuItem>
-                {doctors.map((doctor) => (
-                  <MenuItem key={doctor._id} value={doctor._id}>
-                    {doctor.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        )}
-
-        <Grid item xs={12}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={patient.consentObtained || false}
-                onChange={(e) =>
-                  handleCheckboxChange({
-                    target: {
-                      name: "consentObtained",
-                      checked: e.target.checked,
-                    },
-                  })
+              {getInitials(patient.name)}
+            </Avatar>
+            <Box>
+              <Typography variant="h5" component="h2" gutterBottom>
+                {patient.name || "Unnamed Patient"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ID: {patient.ipd_opd_no || "Not assigned"}
+              </Typography>
+            </Box>
+            <Box sx={{ ml: "auto" }}>
+              <Chip
+                label={
+                  patient.consentObtained ? "Consent Obtained" : "No Consent"
                 }
+                color={patient.consentObtained ? "success" : "error"}
+                sx={{ fontWeight: "medium" }}
               />
-            }
-            label="Consent Obtained"
-          />
-        </Grid>
+            </Box>
+          </Box>
 
-        <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom>
-            Patient Complaints
-          </Typography>
           <Divider sx={{ mb: 3 }} />
 
-          {patient.complaints &&
-            patient.complaints.map((complaint, index) => (
-              <Box
-                key={index}
-                sx={{ mb: 2, display: "flex", alignItems: "flex-start" }}
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={6}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  backgroundColor: "rgba(0, 0, 0, 0.02)",
+                  height: "100%",
+                  borderRadius: 2,
+                }}
               >
-                <Grid container spacing={2} sx={{ flex: 1 }}>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Symptom"
-                      value={complaint.symptom || ""}
-                      onChange={(e) =>
-                        handleComplaintChange(index, "symptom", e.target.value)
-                      }
-                    />
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ color: "primary.main" }}
+                >
+                  Personal Information
+                </Typography>
+
+                {renderField(
+                  "Gender",
+                  patient.gender ? formatFieldName(patient.gender) : null,
+                  <GenderIcon sx={{ color: getGenderColor(patient.gender) }} />
+                )}
+
+                {renderField(
+                  "Age",
+                  patient.age ? `${patient.age} years` : null,
+                  <PersonIcon />
+                )}
+
+                {renderField(
+                  "Date of Birth",
+                  formatDate(patient.dob),
+                  <BirthdayIcon />
+                )}
+
+                {renderField(
+                  "Contact Number",
+                  patient.contactNo,
+                  <PhoneIcon />
+                )}
+
+                {renderField("Address", patient.address, <HomeIcon />)}
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  backgroundColor: "rgba(0, 0, 0, 0.02)",
+                  height: "100%",
+                  borderRadius: 2,
+                }}
+              >
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ color: "primary.main" }}
+                >
+                  Social Information
+                </Typography>
+
+                {renderField(
+                  "Marital Status",
+                  patient.maritalStatus
+                    ? formatFieldName(patient.maritalStatus)
+                    : null,
+                  <PersonIcon />
+                )}
+
+                {renderField(
+                  "Employment Status",
+                  patient.employmentStatus
+                    ? formatFieldName(patient.employmentStatus)
+                    : null,
+                  <WorkIcon />
+                )}
+
+                {renderField(
+                  "Economic Status",
+                  patient.economicStatus
+                    ? formatFieldName(patient.economicStatus)
+                    : null,
+                  <MoneyIcon />
+                )}
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  backgroundColor: "rgba(0, 0, 0, 0.02)",
+                  borderRadius: 2,
+                }}
+              >
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ color: "primary.main" }}
+                >
+                  Medical Information
+                </Typography>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    {renderField(
+                      "Provisional Diagnosis",
+                      patient.provisionalDiagnosis,
+                      <MedicalIcon />
+                    )}
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Severity"
-                      value={complaint.severity || ""}
-                      onChange={(e) =>
-                        handleComplaintChange(index, "severity", e.target.value)
-                      }
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Duration"
-                      value={complaint.duration || ""}
-                      onChange={(e) =>
-                        handleComplaintChange(index, "duration", e.target.value)
-                      }
-                    />
+
+                  <Grid item xs={12} md={6}>
+                    {renderField(
+                      "Final Diagnosis",
+                      patient.finalDiagnosis,
+                      <EventIcon />
+                    )}
                   </Grid>
                 </Grid>
-                <IconButton
-                  color="error"
-                  onClick={() => handleRemoveComplaint(index)}
-                  sx={{ mt: 1, ml: 1 }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-            ))}
+              </Paper>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-          <Box sx={{ mt: 1 }}>
-            <IconButton
-              color="primary"
-              onClick={handleAddComplaint}
-              sx={{ mr: 1 }}
-            >
-              <AddIcon />
-            </IconButton>
-            <Typography
-              variant="button"
-              color="primary"
-              component="span"
-              sx={{ cursor: "pointer" }}
-              onClick={handleAddComplaint}
-            >
-              Add Complaint
-            </Typography>
-          </Box>
-        </Grid>
-      </Grid>
+      {/* Complaints Section */}
+      <Card elevation={2} sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ color: "primary.main", mb: 2 }}>
+            Patient Complaints
+          </Typography>
+
+          <Divider sx={{ mb: 3 }} />
+
+          {patient.complaints && patient.complaints.length > 0 ? (
+            patient.complaints.map((complaint, index) => (
+              <Paper
+                key={index}
+                elevation={0}
+                sx={{
+                  p: 2,
+                  mb: 2,
+                  backgroundColor: "rgba(0, 0, 0, 0.02)",
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Symptom
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {complaint.symptom || "Not specified"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Severity
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {complaint.severity || "Not specified"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Duration
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {complaint.duration || "Not specified"}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+            ))
+          ) : (
+            <Box sx={{ textAlign: "center", py: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                No complaints recorded for this patient.
+              </Typography>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 };
 
-export default PatientDemographicsForm;
+export default PatientDemographicsView;

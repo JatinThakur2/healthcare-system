@@ -1,275 +1,285 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   Box,
   Typography,
-  TextField,
-  FormControlLabel,
-  Checkbox,
-  IconButton,
   Divider,
   Paper,
-  Button,
+  Chip,
+  Card,
+  CardContent,
+  CardHeader,
+  Avatar,
+  Tooltip,
 } from "@mui/material";
 import Grid from "@mui/material/Grid2";
-import { Add as AddIcon, Delete as DeleteIcon } from "@mui/icons-material";
+import {
+  Favorite as HeartIcon,
+  Bloodtype as StrokeIcon,
+  Monitor as DiabetesIcon,
+  AirlineSeatLegroomExtra as COPDIcon,
+  Air as AsthmaIcon,
+  Psychology as NeurologicalIcon,
+  Healing as HypertensionIcon,
+  MedicalServices as MedicalIcon,
+  HistoryEdu as HistoryIcon,
+  ArrowCircleUp as PresentIcon,
+  Cancel as AbsentIcon,
+} from "@mui/icons-material";
 
-const MedicalHistoryForm = ({ patient, setPatient }) => {
-  // Initialize medicalHistory if it doesn't exist
-  useEffect(() => {
-    if (!patient.medicalHistory) {
-      setPatient((prev) => ({
-        ...prev,
-        medicalHistory: {
-          hypertension: { status: false, duration: "", treatment: "" },
-          heartDisease: { status: false, duration: "", treatment: "" },
-          stroke: { status: false, duration: "", treatment: "" },
-          diabetes: { status: false, duration: "", treatment: "" },
-          copd: { status: false, duration: "", treatment: "" },
-          asthma: { status: false, duration: "", treatment: "" },
-          neurologicalDisorders: { status: false, duration: "", treatment: "" },
-          otherConditions: "",
-        },
-      }));
-    }
+const MedicalHistoryView = ({ patient }) => {
+  // Format field names for better display
 
-    // Initialize pastFamilyHistory if it doesn't exist
-    if (!patient.pastFamilyHistory) {
-      setPatient((prev) => ({
-        ...prev,
-        pastFamilyHistory: [],
-      }));
-    }
-  }, [patient, setPatient]);
+  // Render a field with label and value
+  const renderField = (label, value, defaultValue = "Not provided") => (
+    <Box sx={{ mb: 1 }}>
+      <Typography variant="subtitle2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="body1" fontWeight="medium">
+        {value || defaultValue}
+      </Typography>
+    </Box>
+  );
 
-  // Handle medical history status changes
-  const handleMedicalHistoryStatusChange = (condition, checked) => {
-    setPatient((prev) => ({
-      ...prev,
-      medicalHistory: {
-        ...prev.medicalHistory,
-        [condition]: {
-          ...(prev.medicalHistory?.[condition] || {
-            duration: "",
-            treatment: "",
-          }),
-          status: checked,
-        },
-      },
-    }));
-  };
-
-  // Handle medical history details changes
-  const handleMedicalHistoryDetailChange = (condition, field, value) => {
-    setPatient((prev) => ({
-      ...prev,
-      medicalHistory: {
-        ...prev.medicalHistory,
-        [condition]: {
-          ...(prev.medicalHistory?.[condition] || { status: false }),
-          [field]: value,
-        },
-      },
-    }));
-  };
-
-  // Handle other conditions change
-  const handleOtherConditionsChange = (e) => {
-    setPatient((prev) => ({
-      ...prev,
-      medicalHistory: {
-        ...(prev.medicalHistory || {}),
-        otherConditions: e.target.value,
-      },
-    }));
-  };
-
-  // Handle past/family history array
-  const handleAddHistory = () => {
-    setPatient((prev) => ({
-      ...prev,
-      pastFamilyHistory: [
-        ...(prev.pastFamilyHistory || []),
-        { condition: "", details: "" },
-      ],
-    }));
-  };
-
-  const handleRemoveHistory = (index) => {
-    setPatient((prev) => ({
-      ...prev,
-      pastFamilyHistory: prev.pastFamilyHistory.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleHistoryChange = (index, field, value) => {
-    setPatient((prev) => {
-      const newHistory = [...(prev.pastFamilyHistory || [])];
-      newHistory[index] = {
-        ...newHistory[index],
-        [field]: value,
-      };
-      return {
-        ...prev,
-        pastFamilyHistory: newHistory,
-      };
-    });
-  };
-
-  // If medicalHistory is still not available, show loading or initialize
-  if (!patient.medicalHistory) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Typography>Initializing medical history...</Typography>
-      </Box>
-    );
-  }
-
+  // Check if medical history exists
+  const hasHistory =
+    patient.medicalHistory && Object.keys(patient.medicalHistory).length > 0;
   const medicalHistory = patient.medicalHistory || {};
-  const pastFamilyHistory = patient.pastFamilyHistory || [];
+
+  // Check if past/family history exists
+  const hasPastFamilyHistory =
+    patient.pastFamilyHistory && patient.pastFamilyHistory.length > 0;
+
+  // Array of conditions to display with icons
+  const conditions = [
+    { key: "hypertension", label: "Hypertension", icon: <HypertensionIcon /> },
+    { key: "heartDisease", label: "Heart Disease", icon: <HeartIcon /> },
+    { key: "stroke", label: "Stroke", icon: <StrokeIcon /> },
+    { key: "diabetes", label: "Diabetes", icon: <DiabetesIcon /> },
+    { key: "copd", label: "COPD", icon: <COPDIcon /> },
+    { key: "asthma", label: "Asthma", icon: <AsthmaIcon /> },
+    {
+      key: "neurologicalDisorders",
+      label: "Neurological Disorders",
+      icon: <NeurologicalIcon />,
+    },
+  ];
 
   return (
     <>
-      <Typography variant="h6" gutterBottom>
-        Medical History
-      </Typography>
-      <Divider sx={{ mb: 3 }} />
-
-      <Grid container spacing={3}>
-        {/* Medical conditions */}
-        {[
-          "hypertension",
-          "heartDisease",
-          "stroke",
-          "diabetes",
-          "copd",
-          "asthma",
-          "neurologicalDisorders",
-        ].map((condition) => (
-          <Grid item xs={12} md={6} key={condition}>
-            <Paper sx={{ p: 2 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={medicalHistory[condition]?.status || false}
-                    onChange={(e) =>
-                      handleMedicalHistoryStatusChange(
-                        condition,
-                        e.target.checked
-                      )
-                    }
-                  />
-                }
-                label={
-                  condition.charAt(0).toUpperCase() +
-                  condition.slice(1).replace(/([A-Z])/g, " $1")
-                }
-              />
-
-              {medicalHistory[condition]?.status && (
-                <Box sx={{ pl: 4, mt: 1 }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Duration"
-                        value={medicalHistory[condition]?.duration || ""}
-                        onChange={(e) =>
-                          handleMedicalHistoryDetailChange(
-                            condition,
-                            "duration",
-                            e.target.value
-                          )
-                        }
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Treatment"
-                        value={medicalHistory[condition]?.treatment || ""}
-                        onChange={(e) =>
-                          handleMedicalHistoryDetailChange(
-                            condition,
-                            "treatment",
-                            e.target.value
-                          )
-                        }
-                        size="small"
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-              )}
-            </Paper>
-          </Grid>
-        ))}
-
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Other Conditions"
-            multiline
-            rows={2}
-            value={medicalHistory.otherConditions || ""}
-            onChange={handleOtherConditionsChange}
-          />
-        </Grid>
-
-        <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom>
-            Past/Family History
-          </Typography>
-          <Divider sx={{ mb: 3 }} />
-
-          {pastFamilyHistory.map((history, index) => (
-            <Box
-              key={index}
-              sx={{ mb: 2, display: "flex", alignItems: "flex-start" }}
-            >
-              <Grid container spacing={2} sx={{ flex: 1 }}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Condition"
-                    value={history.condition || ""}
-                    onChange={(e) =>
-                      handleHistoryChange(index, "condition", e.target.value)
-                    }
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Details"
-                    value={history.details || ""}
-                    onChange={(e) =>
-                      handleHistoryChange(index, "details", e.target.value)
-                    }
-                  />
-                </Grid>
-              </Grid>
-              <IconButton
-                color="error"
-                onClick={() => handleRemoveHistory(index)}
-                sx={{ mt: 1, ml: 1 }}
-              >
-                <DeleteIcon />
-              </IconButton>
+      <Card elevation={2} sx={{ mb: 4 }}>
+        <CardHeader
+          title={
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <MedicalIcon sx={{ mr: 1, color: "primary.main" }} />
+              <Typography variant="h6" color="primary.main">
+                Medical Conditions
+              </Typography>
             </Box>
-          ))}
+          }
+        />
+        <Divider />
+        <CardContent>
+          {!hasHistory ? (
+            <Box sx={{ textAlign: "center", py: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                No medical history recorded.
+              </Typography>
+            </Box>
+          ) : (
+            <Grid container spacing={3}>
+              {/* Medical conditions */}
+              {conditions.map((condition) => {
+                const conditionData = medicalHistory[condition.key];
+                const isPresent = conditionData?.status;
 
-          <Button
-            startIcon={<AddIcon />}
-            onClick={handleAddHistory}
-            sx={{ mt: 1 }}
-          >
-            Add Past/Family History
-          </Button>
-        </Grid>
-      </Grid>
+                return (
+                  <Grid item xs={12} md={6} key={condition.key}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 3,
+                        height: "100%",
+                        borderRadius: 2,
+                        border: "1px solid",
+                        borderColor: isPresent
+                          ? "error.light"
+                          : "success.light",
+                        backgroundColor: isPresent
+                          ? "error.lightest"
+                          : "success.lightest",
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          mb: 2,
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <Avatar
+                            sx={{
+                              bgcolor: isPresent
+                                ? "error.main"
+                                : "success.main",
+                              mr: 1.5,
+                              width: 40,
+                              height: 40,
+                            }}
+                          >
+                            {condition.icon}
+                          </Avatar>
+                          <Typography variant="h6">
+                            {condition.label}
+                          </Typography>
+                        </Box>
+                        <Tooltip
+                          title={
+                            isPresent ? "Condition Present" : "Condition Absent"
+                          }
+                        >
+                          <Avatar
+                            sx={{
+                              bgcolor: isPresent
+                                ? "error.lightest"
+                                : "success.lightest",
+                              color: isPresent ? "error.main" : "success.main",
+                            }}
+                          >
+                            {isPresent ? <PresentIcon /> : <AbsentIcon />}
+                          </Avatar>
+                        </Tooltip>
+                      </Box>
+
+                      {isPresent && (
+                        <Box
+                          sx={{
+                            mt: 2,
+                            pl: 2,
+                            borderLeft: "2px solid",
+                            borderColor: "error.light",
+                          }}
+                        >
+                          {renderField("Duration", conditionData?.duration)}
+                          {renderField("Treatment", conditionData?.treatment)}
+                        </Box>
+                      )}
+                    </Paper>
+                  </Grid>
+                );
+              })}
+
+              {/* Other conditions */}
+              {medicalHistory.otherConditions && (
+                <Grid item xs={12}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "primary.light",
+                      backgroundColor: "rgba(0, 0, 0, 0.02)",
+                    }}
+                  >
+                    <Typography
+                      variant="h6"
+                      gutterBottom
+                      sx={{ color: "primary.main" }}
+                    >
+                      Other Conditions
+                    </Typography>
+                    <Typography variant="body1">
+                      {medicalHistory.otherConditions}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card elevation={2}>
+        <CardHeader
+          title={
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <HistoryIcon sx={{ mr: 1, color: "primary.main" }} />
+              <Typography variant="h6" color="primary.main">
+                Past/Family History
+              </Typography>
+            </Box>
+          }
+        />
+        <Divider />
+        <CardContent>
+          {!hasPastFamilyHistory ? (
+            <Box sx={{ textAlign: "center", py: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                No past or family history recorded.
+              </Typography>
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              {patient.pastFamilyHistory.map((history, index) => (
+                <Grid item xs={12} key={index}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      backgroundColor: "rgba(0, 0, 0, 0.02)",
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        boxShadow: 1,
+                      },
+                    }}
+                  >
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", mb: 1 }}
+                        >
+                          <Chip
+                            label="Condition"
+                            size="small"
+                            color="primary"
+                            sx={{ mr: 1 }}
+                          />
+                          <Typography variant="body1" fontWeight="medium">
+                            {history.condition || "Not specified"}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", mb: 1 }}
+                        >
+                          <Chip
+                            label="Details"
+                            size="small"
+                            color="secondary"
+                            sx={{ mr: 1 }}
+                          />
+                          <Typography variant="body1">
+                            {history.details || "Not specified"}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 };
 
-export default MedicalHistoryForm;
+export default MedicalHistoryView;
