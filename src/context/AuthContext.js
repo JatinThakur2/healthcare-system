@@ -1,3 +1,4 @@
+// src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -9,6 +10,7 @@ export const useAuth = () => useContext(AuthContext);
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState({});
 
   // Get the current user from the database
@@ -22,6 +24,7 @@ const AuthProvider = ({ children }) => {
   );
 
   const logoutMutation = useMutation(api.auth.logout);
+  const loginMutation = useMutation(api.auth.login);
 
   // Debug effect to log state changes
   useEffect(() => {
@@ -68,7 +71,33 @@ const AuthProvider = ({ children }) => {
     );
   };
 
-  // Function to logout
+  // Login function - returns the result so the calling component can handle navigation
+  const login = async (email, password) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await loginMutation({ email, password });
+
+      if (result.success) {
+        // Store the token
+        storeAuthToken(result.token, result.expiresAt);
+        setUser(result.user);
+        return result;
+      } else {
+        setError(result.message || "Login failed");
+        return result;
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Login failed. Please try again.");
+      return { success: false, message: "Login failed. Please try again." };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to logout - returns a promise so the calling component can handle navigation
   const logout = async () => {
     try {
       // Get token from localStorage
@@ -82,8 +111,11 @@ const AuthProvider = ({ children }) => {
       } else {
         await logoutMutation();
       }
+
+      return { success: true };
     } catch (error) {
       console.error("Logout error:", error);
+      return { success: false, error };
     } finally {
       // Always clear local storage and user state
       localStorage.removeItem("authToken");
@@ -109,6 +141,8 @@ const AuthProvider = ({ children }) => {
     user,
     setUser,
     loading,
+    error,
+    login,
     logout,
     storeAuthToken,
     debugInfo,

@@ -1,6 +1,22 @@
 // convex/users.ts
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+export const checkMainHeadByEmail = query({
+  args: { email: v.string() },
+  async handler(ctx, args) {
+    const existingMainHead = await ctx.db
+      .query("users")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "mainHead"),
+          q.eq(q.field("email"), args.email)
+        )
+      )
+      .first();
+
+    return existingMainHead !== null;
+  },
+});
 
 // Helper query to check if a main head already exists
 export const checkMainHeadExists = query({

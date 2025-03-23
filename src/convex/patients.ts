@@ -1,9 +1,11 @@
+// Complete updated patients.ts
+
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
 // Get all patients
-// Update this function in patients.ts
 export const getAllPatients = query({
   args: {
     token: v.optional(v.string()), // Add token parameter
@@ -50,13 +52,128 @@ export const getAllPatients = query({
     if (user.role === "doctor") {
       return await ctx.db
         .query("patients")
-        .filter((q) => q.eq(q.field("doctorId"), user._id))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("doctorId"), user._id),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
         .collect();
     }
 
-    // If user is mainHead, show all patients
+    // If user is mainHead, show only patients created by them or their doctors
     if (user.role === "mainHead") {
-      return await ctx.db.query("patients").collect();
+      // Get all doctors created by this main head
+      const doctors = await ctx.db
+        .query("users")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("role"), "doctor"),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
+        .collect();
+
+      // Get doctor IDs
+      const doctorIds = doctors.map((doctor) => doctor._id);
+
+      // Get all patients
+      const allPatients = await ctx.db.query("patients").collect();
+
+      // Filter patients to only include those created by this main head or their doctors
+      return allPatients.filter(
+        (patient) =>
+          patient.createdBy === user._id ||
+          (patient.doctorId && doctorIds.includes(patient.doctorId))
+      );
+    }
+
+    return [];
+  },
+});
+
+export const getPatients = query({
+  args: {
+    token: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    // Authenticate user
+    const identity = await ctx.auth.getUserIdentity();
+    let userEmail = identity?.email;
+
+    // If no identity but token provided, try to find session
+    if (!userEmail && args.token) {
+      const session = await ctx.db
+        .query("sessions")
+        .filter((q) => q.eq(q.field("token"), args.token))
+        .first();
+
+      // Check if session exists and is not expired
+      if (session) {
+        const isExpired =
+          session.expiresAt !== undefined && session.expiresAt <= Date.now();
+
+        if (!isExpired) {
+          userEmail = session.email;
+        }
+      }
+    }
+
+    // If we still don't have a user email, authentication failed
+    if (!userEmail) {
+      return [];
+    }
+
+    // Get the user from the database
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), userEmail))
+      .first();
+
+    if (!user) {
+      return [];
+    }
+
+    // Different logic based on user role
+    if (user.role === "mainHead") {
+      // For main head, collect all doctors under this main head first
+      const doctors = await ctx.db
+        .query("users")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("role"), "doctor"),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
+        .collect();
+
+      // Extract doctor IDs
+      const doctorIds = doctors.map((doctor) => doctor._id);
+
+      // Include the main head's ID to find patients created directly by the main head
+      const allIds = [user._id, ...doctorIds];
+
+      // Get patients created by main head or any of their doctors
+      // Use multiple filters instead of 'in' operator
+      const patients = await ctx.db.query("patients").collect();
+
+      // Filter patients in JavaScript code rather than in the query
+      return patients.filter(
+        (patient) =>
+          patient.createdBy === user._id ||
+          (patient.doctorId && allIds.includes(patient.doctorId))
+      );
+    } else if (user.role === "doctor") {
+      // For doctors, only return patients they created or are assigned to them
+      return await ctx.db
+        .query("patients")
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("createdBy"), user._id),
+            q.eq(q.field("doctorId"), user._id)
+          )
+        )
+        .collect();
     }
 
     return [];
@@ -111,60 +228,98 @@ export const getPatientsByDoctor = query({
     if (user.role === "doctor" && !args.doctorId) {
       return await ctx.db
         .query("patients")
-        .filter((q) => q.eq(q.field("doctorId"), user._id))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("doctorId"), user._id),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
         .collect();
     }
 
-    // If doctorId is provided, filter by that doctor
-    if (args.doctorId) {
+    // If doctorId is provided and the current user is a main head
+    if (args.doctorId && user.role === "mainHead") {
+      // First verify the doctor belongs to this main head
+      const doctor = await ctx.db.get(args.doctorId);
+
+      if (
+        !doctor ||
+        doctor.role !== "doctor" ||
+        doctor.createdBy !== user._id
+      ) {
+        // Doctor doesn't exist or doesn't belong to this main head
+        return [];
+      }
+
+      // Get patients for this doctor
       return await ctx.db
         .query("patients")
         .filter((q) => q.eq(q.field("doctorId"), args.doctorId))
         .collect();
     }
 
-    // If user is mainHead, show all patients
-    if (user.role === "mainHead") {
-      return await ctx.db.query("patients").collect();
+    // If doctorId is provided and the current user is that doctor
+    if (args.doctorId && user.role === "doctor" && args.doctorId === user._id) {
+      return await ctx.db
+        .query("patients")
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("doctorId"), user._id),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
+        .collect();
     }
 
+    // If user is mainHead but no doctorId was provided, show all patients under their supervision
+    if (user.role === "mainHead" && !args.doctorId) {
+      // Get all doctors created by this main head
+      const doctors = await ctx.db
+        .query("users")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("role"), "doctor"),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
+        .collect();
+
+      // Get doctor IDs
+      const doctorIds = doctors.map((doctor) => doctor._id);
+
+      // Get all patients
+      const allPatients = await ctx.db.query("patients").collect();
+
+      // Filter patients to only include those created by this main head or their doctors
+      return allPatients.filter(
+        (patient) =>
+          patient.createdBy === user._id ||
+          (patient.doctorId && doctorIds.includes(patient.doctorId))
+      );
+    }
+
+    // Default: return empty array for any other case
     return [];
   },
 });
 
 // Get a single patient by ID
-
-// Update the getPatientById function to include a token parameter
-
-// In your patients.ts file, verify the getPatientById function looks like this:
-
 export const getPatientById = query({
   args: {
     patientId: v.id("patients"),
-    token: v.optional(v.string()), // Make sure token is included
+    token: v.optional(v.string()),
   },
   async handler(ctx, args) {
-    console.log("getPatientById called with:", args);
-
-    // Try to authenticate via Convex auth or token
+    // Authenticate user
     const identity = await ctx.auth.getUserIdentity();
     let userEmail = identity?.email;
 
-    console.log("Identity from auth:", userEmail);
-
     // If no identity but token provided, try to find session
     if (!userEmail && args.token) {
-      console.log(
-        "Trying to authenticate with token:",
-        args.token.substring(0, 5) + "..."
-      );
-
       const session = await ctx.db
         .query("sessions")
         .filter((q) => q.eq(q.field("token"), args.token))
         .first();
-
-      console.log("Session found:", session ? "Yes" : "No");
 
       // Check if session exists and is not expired
       if (session) {
@@ -173,16 +328,12 @@ export const getPatientById = query({
 
         if (!isExpired) {
           userEmail = session.email;
-          console.log("Valid session found, using email:", userEmail);
-        } else {
-          console.log("Session expired");
         }
       }
     }
 
     // If we still don't have a user email, authentication failed
     if (!userEmail) {
-      console.log("Authentication failed, returning null");
       return null;
     }
 
@@ -193,38 +344,49 @@ export const getPatientById = query({
       .first();
 
     if (!user) {
-      console.log("User not found");
       return null;
     }
 
-    console.log("User found:", user.role);
-
-    // Get the patient record
+    // Get the patient
     const patient = await ctx.db.get(args.patientId);
-    console.log("Patient found:", patient ? "Yes" : "No");
 
     if (!patient) {
-      console.log("Patient not found with ID:", args.patientId);
       return null;
     }
 
-    // If the user is a doctor, check if they have access to this patient
-    if (user.role === "doctor" && patient.doctorId !== user._id) {
-      console.log("Doctor doesn't have access to this patient");
-      console.log("Patient's doctorId:", patient.doctorId);
-      console.log("Doctor's ID:", user._id);
+    // Check access rights
+    if (user.role === "mainHead") {
+      // Main head can access if they created the patient directly
+      if (patient.createdBy === user._id) {
+        return patient;
+      }
 
-      // If the user is not the main head and not the doctor assigned to this patient
-      // Check if this restriction is needed or not
-      // return null;
+      // Or if the patient was created by one of their doctors
+      const doctor = patient.doctorId
+        ? await ctx.db.get(patient.doctorId)
+        : null;
+
+      if (doctor && doctor.createdBy === user._id) {
+        return patient;
+      }
+
+      // Otherwise, deny access
+      return null;
+    } else if (user.role === "doctor") {
+      // Doctor can only access if they created the patient or are assigned to it
+      if (patient.createdBy === user._id || patient.doctorId === user._id) {
+        return patient;
+      }
+
+      // Otherwise, deny access
+      return null;
     }
 
-    return patient;
+    return null;
   },
 });
-// Create a new patient with minimal required fields
-// Modified patients.ts with proper TypeScript typings
 
+// Create a new patient with minimal required fields
 export const createPatient = mutation({
   args: {
     ipd_opd_no: v.string(),
@@ -301,6 +463,18 @@ export const createPatient = mutation({
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    // If doctorId is provided and user is main head, verify the doctor belongs to this main head
+    if (patientData.doctorId && user.role === "mainHead") {
+      const doctor = await ctx.db.get(patientData.doctorId);
+      if (
+        !doctor ||
+        doctor.role !== "doctor" ||
+        doctor.createdBy !== user._id
+      ) {
+        throw new Error("Not authorized to assign to this doctor");
+      }
     }
 
     // Create the patient record
@@ -398,8 +572,48 @@ export const updatePatient = mutation({
       throw new Error("Patient not found");
     }
 
+    // Check if user has permission to update this patient
+    let hasPermission = false;
+
+    if (user.role === "mainHead") {
+      // Main head can update if they created the patient directly
+      if (existingPatient.createdBy === user._id) {
+        hasPermission = true;
+      } else if (existingPatient.doctorId) {
+        // Or if the patient's doctor was created by this main head
+        const doctor = await ctx.db.get(existingPatient.doctorId);
+        if (doctor && doctor.createdBy === user._id) {
+          hasPermission = true;
+        }
+      }
+    } else if (user.role === "doctor") {
+      // Doctor can update if they created or are assigned to the patient
+      if (
+        existingPatient.createdBy === user._id ||
+        existingPatient.doctorId === user._id
+      ) {
+        hasPermission = true;
+      }
+    }
+
+    if (!hasPermission) {
+      throw new Error("Not authorized to update this patient");
+    }
+
+    // If doctorId is provided and user is main head, verify the doctor belongs to this main head
+    if (patientData.doctorId && user.role === "mainHead") {
+      const doctor = await ctx.db.get(patientData.doctorId);
+      if (
+        !doctor ||
+        doctor.role !== "doctor" ||
+        doctor.createdBy !== user._id
+      ) {
+        throw new Error("Not authorized to assign to this doctor");
+      }
+    }
+
     // Update the patient record
-    const updatedPatient = await ctx.db.patch(patientId, {
+    await ctx.db.patch(patientId, {
       ...patientData,
       updatedAt: Date.now(),
       lastModifiedBy: user._id,
@@ -409,18 +623,64 @@ export const updatePatient = mutation({
   },
 });
 
+export const getDoctorsUnderMainHead = query({
+  args: {
+    mainHeadId: v.id("users"),
+    token: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    // Get all doctors created by this main head
+    const doctors = await ctx.db
+      .query("users")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "doctor"),
+          q.eq(q.field("createdBy"), args.mainHeadId)
+        )
+      )
+      .collect();
+
+    return doctors.map((doctor: { _id: Id<"users"> }) => doctor._id);
+  },
+});
+
 // Delete a patient
 export const deletePatient = mutation({
-  args: { patientId: v.id("patients") },
+  args: {
+    patientId: v.id("patients"),
+    token: v.optional(v.string()),
+  },
   async handler(ctx, args) {
+    // Authenticate user
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    let userEmail = identity?.email;
+
+    // If no identity but token provided, try to find session
+    if (!userEmail && args.token) {
+      const session = await ctx.db
+        .query("sessions")
+        .filter((q) => q.eq(q.field("token"), args.token))
+        .first();
+
+      // Check if session exists and is not expired
+      if (session) {
+        const isExpired =
+          session.expiresAt !== undefined && session.expiresAt <= Date.now();
+
+        if (!isExpired) {
+          userEmail = session.email;
+        }
+      }
+    }
+
+    // If we still don't have a user email, authentication failed
+    if (!userEmail) {
       throw new ConvexError("Not authenticated");
     }
 
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .filter((q) => q.eq(q.field("email"), userEmail))
       .first();
 
     if (!user) {
@@ -433,11 +693,34 @@ export const deletePatient = mutation({
       throw new ConvexError("Patient not found");
     }
 
-    if (user.role !== "mainHead" && patient.doctorId !== user._id) {
+    // Check if the current user has permission to delete this patient
+    if (user.role === "mainHead") {
+      // If main head, check if they created the patient or if it was created by one of their doctors
+      if (patient.createdBy === user._id) {
+        // Main head created the patient directly
+        await ctx.db.delete(args.patientId);
+        return { success: true };
+      }
+
+      // Check if the patient's doctor was created by this main head
+      if (patient.doctorId) {
+        const doctor = await ctx.db.get(patient.doctorId);
+        if (doctor && doctor.createdBy === user._id) {
+          await ctx.db.delete(args.patientId);
+          return { success: true };
+        }
+      }
+
+      throw new ConvexError("Not authorized to delete this patient");
+    } else if (user.role === "doctor") {
+      // Doctors can only delete patients they created or are assigned to
+      if (patient.createdBy === user._id || patient.doctorId === user._id) {
+        await ctx.db.delete(args.patientId);
+        return { success: true };
+      }
       throw new ConvexError("Not authorized to delete this patient");
     }
 
-    await ctx.db.delete(args.patientId);
-    return { success: true };
+    throw new ConvexError("Not authorized to delete patients");
   },
 });

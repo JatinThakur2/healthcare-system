@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,7 +10,11 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import theme from "./theme";
 
+// Components
+import LoadingSpinner from "./components/common/LoadingSpinner";
+
 // Pages
+import LandingPage from "./pages/landing/LandingPage";
 import Login from "./pages/auth/Login";
 import RegisterMainHead from "./pages/auth/RegisterMainHead";
 import MainHeadDashboard from "./pages/dashboard/MainHeadDashboard";
@@ -32,15 +36,35 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <LoadingSpinner message="Authenticating..." />;
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/landing" />;
   }
 
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/" />;
+  }
+
+  return children;
+};
+
+// Public route component that redirects authenticated users
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner message="Authenticating..." />;
+  }
+
+  if (user) {
+    // Redirect to appropriate dashboard based on user role
+    if (user.role === "mainHead") {
+      return <Navigate to="/" />;
+    } else if (user.role === "doctor") {
+      return <Navigate to="/doctor-dashboard" />;
+    }
   }
 
   return children;
@@ -51,87 +75,116 @@ function App() {
     <ConvexProvider client={convex}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<RegisterMainHead />} />
+        <Router>
+          <AuthProvider>
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
+                {/* Public Routes */}
+                <Route
+                  path="/landing"
+                  element={
+                    <PublicRoute>
+                      <LandingPage />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/login"
+                  element={
+                    <PublicRoute>
+                      <Login />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <PublicRoute>
+                      <RegisterMainHead />
+                    </PublicRoute>
+                  }
+                />
 
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              >
-                {/* Main Head Routes */}
+                {/* Protected Routes */}
                 <Route
                   path="/"
                   element={
-                    <ProtectedRoute requiredRole="mainHead">
-                      <MainHeadDashboard />
+                    <ProtectedRoute>
+                      <AppLayout />
                     </ProtectedRoute>
                   }
-                />
-                <Route
-                  path="/doctors"
-                  element={
-                    <ProtectedRoute requiredRole="mainHead">
-                      <DoctorManagement />
-                    </ProtectedRoute>
-                  }
-                />
+                >
+                  {/* Main Head Routes */}
+                  <Route
+                    index
+                    element={
+                      <ProtectedRoute requiredRole="mainHead">
+                        <MainHeadDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/doctors"
+                    element={
+                      <ProtectedRoute requiredRole="mainHead">
+                        <DoctorManagement />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Doctor Routes */}
-                <Route
-                  path="/doctor-dashboard"
-                  element={
-                    <ProtectedRoute requiredRole="doctor">
-                      <DoctorDashboard />
-                    </ProtectedRoute>
-                  }
-                />
+                  {/* Doctor Routes */}
+                  <Route
+                    path="/doctor-dashboard"
+                    element={
+                      <ProtectedRoute requiredRole="doctor">
+                        <DoctorDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Common Routes */}
-                <Route
-                  path="/patients"
-                  element={
-                    <ProtectedRoute>
-                      <PatientsList />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/patients/new"
-                  element={
-                    <ProtectedRoute>
-                      <PatientForm />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/patients/:id"
-                  element={
-                    <ProtectedRoute>
-                      <PatientView />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/patients/:id/edit"
-                  element={
-                    <ProtectedRoute>
-                      <PatientForm />
-                    </ProtectedRoute>
-                  }
-                />
-              </Route>
+                  {/* Common Routes */}
+                  <Route
+                    path="/patients"
+                    element={
+                      <ProtectedRoute>
+                        <PatientsList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/patients/new"
+                    element={
+                      <ProtectedRoute>
+                        <PatientForm />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/patients/:id"
+                    element={
+                      <ProtectedRoute>
+                        <PatientView />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/patients/:id/edit"
+                    element={
+                      <ProtectedRoute>
+                        <PatientForm />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Router>
-        </AuthProvider>
+                {/* Redirect root to landing by default */}
+                <Route path="" element={<Navigate to="/landing" replace />} />
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </Router>
       </ThemeProvider>
     </ConvexProvider>
   );

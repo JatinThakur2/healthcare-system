@@ -17,6 +17,8 @@ import {
   Divider,
   useMediaQuery,
   useTheme,
+  Container,
+  Link as MuiLink,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -69,7 +71,7 @@ const AppLayout = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login");
+    navigate("/landing");
   };
 
   const menuItems = [
@@ -104,175 +106,204 @@ const AppLayout = () => {
   );
 
   return (
-    <Box sx={{ display: "flex" }}>
-      {/* Fixed App Bar - No border radius */}
-      <AppBar
-        position="fixed"
-        sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          borderRadius: 0, // Ensure no border radius
-          boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)", // Subtle shadow instead of rounded corners
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            id="menu-button"
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Healthcare Information System
-          </Typography>
-          <IconButton
-            onClick={handleProfileMenuOpen}
-            size="large"
-            edge="end"
-            color="inherit"
-          >
-            <Avatar sx={{ width: 32, height: 32, bgcolor: "secondary.main" }}>
-              {user?.name?.charAt(0) || "U"}
-            </Avatar>
-          </IconButton>
-          <Menu
-            id="profile-menu"
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
-            PaperProps={{
-              elevation: 0,
-              sx: {
-                overflow: "visible",
-                filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
-                mt: 1.5,
-                borderRadius: 1, // Small radius for menu only
-                "& .MuiAvatar-root": {
-                  width: 32,
-                  height: 32,
-                  ml: -0.5,
-                },
-              },
-            }}
-            transformOrigin={{ horizontal: "right", vertical: "top" }}
-            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-          >
-            <MenuItem>
-              <Avatar>{user?.name?.charAt(0) || "U"}</Avatar>
-              <Typography sx={{ ml: 1 }}>{user?.name}</Typography>
-            </MenuItem>
-            <Divider />
-            <MenuItem>
-              <ListItemIcon>
-                <PersonIcon fontSize="small" />
-              </ListItemIcon>
-              Profile
-            </MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <ListItemIcon>
-                <LogoutIcon fontSize="small" />
-              </ListItemIcon>
-              Logout
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
-
-      {/* Drawer - No border radius */}
-      <Drawer
-        ref={drawerRef}
-        variant={isMobile ? "temporary" : "persistent"}
-        open={isMobile ? open : open}
-        onClose={isMobile ? handleDrawerToggle : undefined}
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <Box sx={{ display: "flex", flexGrow: 1 }}>
+        {/* Fixed App Bar - No border radius */}
+        <AppBar
+          position="fixed"
+          sx={{
+            zIndex: (theme) => theme.zIndex.drawer + 1,
             borderRadius: 0, // Ensure no border radius
-            borderRight: "1px solid rgba(0, 0, 0, 0.12)", // Simple border instead
-          },
-        }}
-        keepMounted
-        disablePortal
-      >
-        <Toolbar />
-        <Box sx={{ overflow: "auto" }} tabIndex="-1">
-          {!isMobile && (
-            <Box sx={{ display: "flex", justifyContent: "flex-end", p: 1 }}>
-              <IconButton onClick={handleDrawerToggle} tabIndex="0">
-                <ChevronLeftIcon />
-              </IconButton>
-            </Box>
-          )}
-          <List>
-            {filteredMenuItems.map((item) => (
-              <ListItem
-                key={item.text}
-                component={Link}
-                to={item.path}
-                sx={{
-                  borderRadius: 0, // No border radius on list items
-                  "&.active": {
-                    bgcolor: "rgba(0, 0, 0, 0.08)",
+            boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)", // Subtle shadow instead of rounded corners
+          }}
+        >
+          <Toolbar>
+            <IconButton
+              id="menu-button"
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2 }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              Healthcare Information System
+            </Typography>
+            <IconButton
+              onClick={handleProfileMenuOpen}
+              size="large"
+              edge="end"
+              color="inherit"
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "secondary.main" }}>
+                {user?.name?.charAt(0) || "U"}
+              </Avatar>
+            </IconButton>
+            <Menu
+              id="profile-menu"
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleProfileMenuClose}
+              PaperProps={{
+                elevation: 0,
+                sx: {
+                  overflow: "visible",
+                  filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                  mt: 1.5,
+                  borderRadius: 1, // Small radius for menu only
+                  "& .MuiAvatar-root": {
+                    width: 32,
+                    height: 32,
+                    ml: -0.5,
                   },
+                },
+              }}
+              transformOrigin={{ horizontal: "right", vertical: "top" }}
+              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+            >
+              <MenuItem>
+                <Avatar>{user?.name?.charAt(0) || "U"}</Avatar>
+                <Typography sx={{ ml: 1 }}>{user?.name}</Typography>
+              </MenuItem>
+              <Divider />
+              <MenuItem>
+                <ListItemIcon>
+                  <PersonIcon fontSize="small" />
+                </ListItemIcon>
+                Profile
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                Logout
+              </MenuItem>
+            </Menu>
+          </Toolbar>
+        </AppBar>
+
+        {/* Drawer - No border radius */}
+        <Drawer
+          ref={drawerRef}
+          variant={isMobile ? "temporary" : "persistent"}
+          open={isMobile ? open : open}
+          onClose={isMobile ? handleDrawerToggle : undefined}
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              boxSizing: "border-box",
+              borderRadius: 0, // Ensure no border radius
+              borderRight: "1px solid rgba(0, 0, 0, 0.12)", // Simple border instead
+            },
+          }}
+          keepMounted
+          disablePortal
+        >
+          <Toolbar />
+          <Box sx={{ overflow: "auto" }} tabIndex="-1">
+            {!isMobile && (
+              <Box sx={{ display: "flex", justifyContent: "flex-end", p: 1 }}>
+                <IconButton onClick={handleDrawerToggle} tabIndex="0">
+                  <ChevronLeftIcon />
+                </IconButton>
+              </Box>
+            )}
+            <List>
+              {filteredMenuItems.map((item) => (
+                <ListItem
+                  key={item.text}
+                  component={Link}
+                  to={item.path}
+                  sx={{
+                    borderRadius: 0, // No border radius on list items
+                    "&.active": {
+                      bgcolor: "rgba(0, 0, 0, 0.08)",
+                    },
+                    "&:hover": {
+                      bgcolor: "rgba(0, 0, 0, 0.04)",
+                    },
+                  }}
+                  onClick={() => {
+                    // If on mobile, close drawer after clicking a menu item
+                    if (isMobile) {
+                      handleDrawerToggle();
+                    }
+                  }}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </ListItem>
+              ))}
+              <Divider sx={{ my: 2 }} />
+              <ListItem
+                onClick={() => {
+                  // Move focus before closing drawer/logout
+                  const menuButton = document.getElementById("menu-button");
+                  if (menuButton) {
+                    menuButton.focus();
+                  }
+                  handleLogout();
+                }}
+                sx={{
+                  borderRadius: 0, // No border radius
+                  cursor: "pointer",
                   "&:hover": {
                     bgcolor: "rgba(0, 0, 0, 0.04)",
                   },
                 }}
-                onClick={() => {
-                  // If on mobile, close drawer after clicking a menu item
-                  if (isMobile) {
-                    handleDrawerToggle();
-                  }
-                }}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
+                <ListItemIcon>
+                  <LogoutIcon />
+                </ListItemIcon>
+                <ListItemText primary="Logout" />
               </ListItem>
-            ))}
-            <Divider sx={{ my: 2 }} />
-            <ListItem
-              onClick={() => {
-                // Move focus before closing drawer/logout
-                const menuButton = document.getElementById("menu-button");
-                if (menuButton) {
-                  menuButton.focus();
-                }
-                handleLogout();
-              }}
-              sx={{
-                borderRadius: 0, // No border radius
-                cursor: "pointer",
-                "&:hover": {
-                  bgcolor: "rgba(0, 0, 0, 0.04)",
-                },
-              }}
-            >
-              <ListItemIcon>
-                <LogoutIcon />
-              </ListItemIcon>
-              <ListItemText primary="Logout" />
-            </ListItem>
-          </List>
-        </Box>
-      </Drawer>
+            </List>
+          </Box>
+        </Drawer>
 
-      {/* Main Content */}
+        {/* Main Content */}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: 3,
+            width: "100%",
+          }}
+        >
+          <Toolbar /> {/* This creates space below the AppBar */}
+          <Outlet />
+        </Box>
+      </Box>
+
+      {/* Footer */}
       <Box
-        component="main"
+        component="footer"
         sx={{
-          flexGrow: 1,
-          p: 3,
-          width: "100%",
+          borderTop: 1,
+          borderColor: "divider",
+          py: 3,
+          bgcolor: "background.paper",
+          mt: "auto",
         }}
       >
-        <Toolbar /> {/* This creates space below the AppBar */}
-        <Outlet />
+        <Container>
+          <Typography variant="body2" color="text.secondary" align="center">
+            © {new Date().getFullYear()} Healthcare Information System |
+            Created by{" "}
+            <MuiLink
+              href="https://jatin-thakur.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              color="primary"
+            >
+              Jatin Thakur
+            </MuiLink>
+          </Typography>
+        </Container>
       </Box>
     </Box>
   );

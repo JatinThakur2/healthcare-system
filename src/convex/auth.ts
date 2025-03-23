@@ -79,17 +79,8 @@ export const createMainHead = mutation({
     name: v.string(),
   },
   async handler(ctx, args) {
-    // Check if a main head already exists
-    const existingMainHead = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("role"), "mainHead"))
-      .first();
-
-    if (existingMainHead) {
-      throw new ConvexError("Main head already exists");
-    }
-
-    // Check if email is already in use
+    // Remove the check for existing main head
+    // Instead, just check if email is already in use
     const existingUser = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("email"), args.email))
@@ -389,9 +380,6 @@ export const getCurrentUser = query({
 });
 
 // Get all doctors (for main head)
-// Update the getAllDoctors query in auth.ts to accept a token parameter:
-
-// Get all doctors (for main head)
 export const getAllDoctors = query({
   args: {
     token: v.optional(v.string()), // Add optional token parameter
@@ -434,9 +422,15 @@ export const getAllDoctors = query({
       return [];
     }
 
+    // Filter to only doctors created by this main head
     const doctors = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "doctor"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "doctor"),
+          q.eq(q.field("createdBy"), user._id)
+        )
+      )
       .collect();
 
     return doctors.map((doctor) => ({
@@ -445,6 +439,7 @@ export const getAllDoctors = query({
       name: doctor.name,
       createdAt: doctor.createdAt,
       isActive: doctor.isActive,
+      createdBy: doctor.createdBy, // Make sure to include createdBy field
     }));
   },
 });

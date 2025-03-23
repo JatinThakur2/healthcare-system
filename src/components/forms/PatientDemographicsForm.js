@@ -18,10 +18,17 @@ import {
 import Grid from "@mui/material/Grid2";
 import { Add as AddIcon, Delete as DeleteIcon } from "@mui/icons-material";
 
+// Remove these incorrect imports and declarations
+// import { useQuery } from "convex/react";
+// import { api } from "../../convex/_generated/api";
+// const token = localStorage.getItem("authToken");
+// const allDoctors = useQuery(api.doctors.getDoctorsWithPatientCounts, { token });
+// const doctors = allDoctors || [];
+
 const PatientDemographicsForm = ({
   patient,
   setPatient,
-  doctors,
+  doctors, // This comes from props passed by the parent component
   isMainHead,
   currentUser,
 }) => {
@@ -353,7 +360,7 @@ const PatientDemographicsForm = ({
           />
         </Grid>
 
-        {/* DOCTOR ASSIGNMENT - COMPLETELY REWRITTEN */}
+        {/* DOCTOR ASSIGNMENT - FIXED VERSION */}
         <Grid item xs={12} md={6}>
           <FormControl
             fullWidth
@@ -363,6 +370,7 @@ const PatientDemographicsForm = ({
             <InputLabel id="doctor-assignment-label">
               Assigned Doctor
             </InputLabel>
+
             <Select
               labelId="doctor-assignment-label"
               id="doctor-assignment"
@@ -382,7 +390,7 @@ const PatientDemographicsForm = ({
               </MenuItem>
 
               {isMainHead ? (
-                // For main head, show all doctors
+                // For main head, show all available doctors (they should already be filtered in the backend)
                 Array.isArray(doctors) && doctors.length > 0 ? (
                   doctors.map((doctor) => (
                     <MenuItem key={doctor._id} value={doctor._id}>
@@ -394,15 +402,19 @@ const PatientDemographicsForm = ({
                     No doctors available
                   </MenuItem>
                 )
-              ) : (
+              ) : !isMainHead && currentUser ? (
                 // For doctors, show only themselves
-                currentUser && (
-                  <MenuItem value={currentUser._id}>
-                    {currentUser.name || "Current Doctor"}
-                  </MenuItem>
-                )
+                <MenuItem value={currentUser._id}>
+                  {currentUser.name || "Current Doctor"}
+                </MenuItem>
+              ) : (
+                // Fallback for no doctors available
+                <MenuItem value="" disabled>
+                  No doctors available
+                </MenuItem>
               )}
             </Select>
+
             {isMainHead && (
               <FormHelperText>
                 {!patient.doctorId

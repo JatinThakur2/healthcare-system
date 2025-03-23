@@ -18,6 +18,7 @@ type DoctorCreationResult = {
 };
 
 // Create the initial main head user (this would be called once during setup)
+// Update in convex/auth_actions.ts
 export const createMainHead = action({
   args: {
     email: v.string(),
@@ -25,14 +26,8 @@ export const createMainHead = action({
     name: v.string(),
   },
   async handler(ctx, args): Promise<MainHeadCreationResult> {
-    // Check if a main head already exists
-    const existingMainHead = await ctx.runQuery(api.users.checkMainHeadExists);
-
-    if (existingMainHead) {
-      throw new ConvexError("Main head already exists");
-    }
-
-    // Check if email is already in use
+    // Remove check for existing main head
+    // Only check if email is already in use
     const existingUser = await ctx.runQuery(api.users.checkEmailExists, {
       email: args.email,
     });

@@ -1,3 +1,4 @@
+// convex/doctors.ts
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
@@ -45,9 +46,15 @@ export const getDoctorsWithPatientCounts = query({
       return [];
     }
 
+    // Filter doctors to only show those created by this main head
     const doctors = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "doctor"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "doctor"),
+          q.eq(q.field("createdBy"), user._id)
+        )
+      )
       .collect();
 
     // Get all patients
@@ -80,7 +87,7 @@ export const updateDoctorStatus = mutation({
   args: {
     doctorId: v.id("users"),
     isActive: v.boolean(),
-    token: v.optional(v.string()), // Add token parameter
+    token: v.optional(v.string()),
   },
   async handler(ctx, args) {
     // Try to authenticate via Convex auth or token
@@ -126,6 +133,11 @@ export const updateDoctorStatus = mutation({
       throw new ConvexError("Doctor not found");
     }
 
+    // Verify the main head created this doctor
+    if (doctor.createdBy !== user._id) {
+      throw new ConvexError("Not authorized to update this doctor's status");
+    }
+
     // Update the doctor's status
     await ctx.db.patch(args.doctorId, {
       isActive: args.isActive,
@@ -140,7 +152,7 @@ export const updateDoctorStatus = mutation({
 export const getDoctorById = query({
   args: {
     doctorId: v.id("users"),
-    token: v.optional(v.string()), // Add token parameter
+    token: v.optional(v.string()),
   },
   async handler(ctx, args) {
     // Try to authenticate via Convex auth or token
@@ -182,6 +194,11 @@ export const getDoctorById = query({
 
     const doctor = await ctx.db.get(args.doctorId);
     if (!doctor || doctor.role !== "doctor") {
+      return null;
+    }
+
+    // Verify the main head created this doctor
+    if (doctor.createdBy !== user._id) {
       return null;
     }
 
