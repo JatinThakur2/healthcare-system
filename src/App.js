@@ -23,6 +23,7 @@ import DoctorManagement from "./pages/doctors/DoctorManagement";
 import PatientsList from "./pages/patients/PatientsList";
 import PatientForm from "./pages/patients/PatientForm";
 import PatientView from "./pages/patients/PatientView";
+import ReportsPage from "./pages/reports/ReportsPage";
 import NotFound from "./pages/NotFound";
 
 // Layout
@@ -105,7 +106,7 @@ function App() {
                   }
                 />
 
-                {/* Protected Routes */}
+                {/* Protected Routes - Rendered within AppLayout (with sidebar) */}
                 <Route
                   path="/"
                   element={
@@ -124,17 +125,26 @@ function App() {
                     }
                   />
                   <Route
-                    path="/doctors"
+                    path="doctors"
                     element={
                       <ProtectedRoute requiredRole="mainHead">
                         <DoctorManagement />
                       </ProtectedRoute>
                     }
                   />
+                  {/* Corrected: Reports Page is now a child route */}
+                  <Route
+                    path="reports"
+                    element={
+                      <ProtectedRoute requiredRole="mainHead">
+                        <ReportsPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Doctor Routes */}
                   <Route
-                    path="/doctor-dashboard"
+                    path="doctor-dashboard"
                     element={
                       <ProtectedRoute requiredRole="doctor">
                         <DoctorDashboard />
@@ -144,7 +154,7 @@ function App() {
 
                   {/* Common Routes */}
                   <Route
-                    path="/patients"
+                    path="patients"
                     element={
                       <ProtectedRoute>
                         <PatientsList />
@@ -152,7 +162,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/patients/new"
+                    path="patients/new"
                     element={
                       <ProtectedRoute>
                         <PatientForm />
@@ -160,7 +170,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/patients/:id"
+                    path="patients/:id"
                     element={
                       <ProtectedRoute>
                         <PatientView />
@@ -168,7 +178,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/patients/:id/edit"
+                    path="patients/:id/edit"
                     element={
                       <ProtectedRoute>
                         <PatientForm />

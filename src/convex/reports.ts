@@ -28,6 +28,7 @@ type DoctorMap = {
 type MonthlyPatientTrendsArgs = {
   year?: number;
   doctorId?: Id<"users">;
+  token?: string;
 };
 
 type PatientDataForExportArgs = {
@@ -64,15 +65,37 @@ export const getPatientStatistics = query({
       return null;
     }
 
-    // Get all patients or only those assigned to current doctor
-    const patientsQuery =
-      user.role === "mainHead"
-        ? ctx.db.query("patients")
-        : ctx.db
-            .query("patients")
-            .filter((q) => q.eq(q.field("doctorId"), user._id));
-
-    const patients = await patientsQuery.collect();
+    // Build scoped patient list according to role (mirror logic from getAllPatients)
+    let patients: any[] = [];
+    if (user.role === "doctor") {
+      patients = await ctx.db
+        .query("patients")
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("doctorId"), user._id),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
+        .collect();
+    } else if (user.role === "mainHead") {
+      // Get doctors created by this main head
+      const doctors = await ctx.db
+        .query("users")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("role"), "doctor"),
+            q.eq(q.field("createdBy"), user._id)
+          )
+        )
+        .collect();
+      const doctorIds = doctors.map((d) => d._id);
+      const allPatients = await ctx.db.query("patients").collect();
+      patients = allPatients.filter(
+        (p) =>
+          p.createdBy === user._id ||
+          (p.doctorId && doctorIds.includes(p.doctorId))
+      );
+    }
 
     // Calculate total patients
     const totalPatients = patients.length;
@@ -154,14 +177,25 @@ export const getDoctorStatistics = query({
       return null;
     }
 
-    // Get all doctors
+    // Get only doctors created by this main head
     const doctors = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "doctor"))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("role"), "doctor"),
+          q.eq(q.field("createdBy"), user._id)
+        )
+      )
       .collect();
 
-    // Get all patients
-    const patients = await ctx.db.query("patients").collect();
+    // Patients scoped to this main head network (own + their doctors)
+    const doctorIds = doctors.map((d) => d._id);
+    const allPatients = await ctx.db.query("patients").collect();
+    const patients = allPatients.filter(
+      (p) =>
+        p.createdBy === user._id ||
+        (p.doctorId && doctorIds.includes(p.doctorId))
+    );
 
     // Calculate patient count per doctor
     const doctorStats = doctors.map((doctor) => {
@@ -199,41 +233,79 @@ export const getMonthlyPatientTrends = query({
   args: {
     year: v.optional(v.number()),
     doctorId: v.optional(v.id("users")),
+    token: v.optional(v.string()), // Added token to validator
   },
   async handler(ctx: QueryCtx, args: MonthlyPatientTrendsArgs) {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
+    let user: User | null = null; // Corrected: Explicitly type the user variable
 
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
-      .first();
+    if (identity) {
+      user = await ctx.db
+        .query("users")
+        .filter((q) => q.eq(q.field("email"), identity.email))
+        .first();
+    } else if (args.token) {
+      const session = await ctx.db
+        .query("sessions")
+        .filter((q) => q.eq(q.field("token"), args.token))
+        .first();
+
+      if (session) {
+        user = await ctx.db
+          .query("users")
+          .filter((q) => q.eq(q.field("email"), session.email))
+          .first();
+      }
+    }
 
     if (!user) {
       return null;
     }
 
+    // Capture non-nullable fields to satisfy TypeScript inside closures
+    const currentUserId = user._id;
+    const currentUserRole = user.role;
+
     // Default to current year if not specified
     const year = args.year || new Date().getFullYear();
 
-    // Get all patients based on user role and args
-    let patientsQuery = ctx.db.query("patients");
-
-    if (user.role === "doctor") {
-      // Doctors can only see their patients
-      patientsQuery = patientsQuery.filter((q) =>
-        q.eq(q.field("doctorId"), user._id)
-      );
-    } else if (args.doctorId) {
-      // Main head can filter by doctor
-      patientsQuery = patientsQuery.filter((q) =>
-        q.eq(q.field("doctorId"), args.doctorId)
+    // Build base patients collection scoped to user network
+    let scopedPatients: any[] = [];
+    if (currentUserRole === "doctor") {
+      scopedPatients = await ctx.db
+        .query("patients")
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("doctorId"), currentUserId),
+            q.eq(q.field("createdBy"), currentUserId)
+          )
+        )
+        .collect();
+    } else if (currentUserRole === "mainHead") {
+      // Get doctors created by this main head
+      const doctors = await ctx.db
+        .query("users")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("role"), "doctor"),
+            q.eq(q.field("createdBy"), currentUserId)
+          )
+        )
+        .collect();
+      const doctorIds = doctors.map((d) => d._id);
+      const allPatients = await ctx.db.query("patients").collect();
+      scopedPatients = allPatients.filter(
+        (p) =>
+          p.createdBy === currentUserId ||
+          (p.doctorId && doctorIds.includes(p.doctorId))
       );
     }
 
-    const patients = await patientsQuery.collect();
+    // Optional filtering by specific doctor (only if that doctor belongs to network)
+    let patients = scopedPatients;
+    if (currentUserRole === "mainHead" && args.doctorId) {
+      patients = patients.filter((p) => p.doctorId === args.doctorId);
+    }
 
     // Initialize monthly data
     const monthlyData = Array(12)
